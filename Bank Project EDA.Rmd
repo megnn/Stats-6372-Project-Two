@@ -1,0 +1,68 @@
+---
+title: "Bank EDA"
+author: "Megan Riley"
+date: "3/13/2020"
+output: pdf_document
+---
+
+```{r Setup}
+library(readr)
+library(tidyverse)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(here)
+
+root = here()
+
+
+bank_20 = read.csv(paste(root,"/data/bank-additional/bank-additional-full.csv", sep = ""), sep=";")
+
+bank_17 = read.csv(paste(root,"/data/bank/bank-full.csv", sep = ""), sep = ";")
+
+
+
+```
+
+## Summary
+
+Unknown whether we should work with both data sets or if Dr. Turner is good with us choosing one. My vote is for bank_20 if we can choose. 
+
+Variable Notes: 
+-Duration is a variable not known until Y is determined, duration is the duration of the call when attempting to sell the term deposit package.  
+- No NAs, uses unknown in places otherwise
+-Campaign is  # of contacts, minimum 1 b/c it includes this contact in the data, even if hte contact was unsuccessful
+-pdays needs to be potentially cleaned where 999 should equal NA or potentially switched to a categorical variable
+-Do not understand some of the later variables, seem to be more socially based. 
+
+
+```{r}
+#Dr Turner is heavily requesting summary stats
+summary(bank_20)
+
+#Does not look like any NAs in either data set
+sapply(bank_20, function(x) sum(is.na(x)))
+sapply(bank_17, function(x) sum(is.na(x)))
+
+#Set any predictions without using Duration or Y
+
+
+#pdays- about 40k of the 41k are at level 999, no previous contact 
+#could bin this data 
+hist(bank_20$pdays)
+
+temp = bank_20 %>% filter(pdays != 999)
+dim(temp)
+hist(temp$pdays)
+
+```
+
+## Uneven Split in outcomes
+
+Yes happens about 10% of the time, where no is the response 90% of the time. This unbalance makes it difficult to predict. 
+- Can balance the train/test split, what else have we learned about predicting unbalanced outcomes? 
+
+
+```{r}
+
+```
