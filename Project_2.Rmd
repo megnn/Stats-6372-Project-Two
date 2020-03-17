@@ -1,0 +1,156 @@
+---
+title: "Project_2"
+author: "Fabio_Savorgnan"
+date: "3/14/2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning = F)
+knitr::opts_chunk$set(message = F)
+```
+
+
+```{r }
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(SDMTools)
+library(readr)
+library(digest)
+library(ISLR)
+library(car) 
+library(leaps)
+library( Matrix)
+library(foreach)
+library(glmnet)
+library(gridExtra)
+library(lsmeans)
+library(limma)
+library(Sleuth3)
+library(tseries)
+library(forecast)
+library(ggplot2)
+library(MASS)
+library(mvtnorm)
+library(epitools)
+library(samplesizeCMH)
+library(caret)
+```
+
+# Loading the data
+```{r }
+bank_20<-read.csv2("bank-additional-full.csv")
+head(bankaditfull)
+bankadit<- read.csv2("bank-additional.csv")
+bank_17<-read.csv2("bank-full.csv")
+bank<-read.csv2("bank.csv")
+```
+
+
+```{r }
+summary(bank_20)
+```
+
+
+# Does not look like any NAs in either data set
+```{r }
+#Does not look like any NAs in either data set
+sapply(bank_20, function(x) sum(is.na(x)))
+sapply(bank_17, function(x) sum(is.na(x)))
+```
+
+#pdays- about 40k of the 41k are at level 999, no previous contact 
+#could bin this data 
+```{r }
+hist(bank_20$pdays)
+temp = bank_20 %>% filter(pdays != 999)
+dim(temp)
+hist(temp$pdays)
+```
+
+# Reshape for a balance data
+```{r }
+set.seed(3456)
+trainIndex <- createDataPartition(bank_20$y == "no", p = .30, 
+                                  list = TRUE, 
+                                  times = 1)
+head(trainIndex)
+```
+
+# Plot EDA
+```{r }
+plot(as.factor(bank_20$y), bank_20$age,xlab="Loan",ylab="Age",title="Credict Assessment")
+plot(y~job,data=bank_20, main="Credict Assessment",
+   xlab="Job", ylab="Loan")
+plot(y~marital,data=bank_20, main="Credict Assessment",
+   xlab="Matital", ylab="Loan")
+plot(y~education,data=bank_20, main="Credict Assessment",
+   xlab="Education", ylab="Loan")
+plot(y~ default,data=bank_20, main="Credict Assessment",
+   xlab="Default", ylab="Loan")
+plot(y~housing,data=bank_20, main="Credict Assessment",
+   xlab="Housing", ylab="Loan")
+plot(y~loan,data=bank_20, main="Credict Assessment",
+   xlab="Loan_Y_N_before", ylab="Loan")
+plot(y~contact,data=bank_20, main="Credict Assessment",
+   xlab="Contact", ylab="Loan")
+plot(y~month,data=bank_20, main="Credict Assessment",
+   xlab="Month", ylab="Loan")
+plot(y~day_of_week,data=bank_20, main="Credict Assessment",
+   xlab="Day_of_week", ylab="Loan")
+plot(y~poutcome,data=bank_20, main="Credict Assessment",
+   xlab="Poutcome", ylab="Loan")
+plot(duration~y  ,data=bank_20, main="Credict Assessment",
+   xlab="Duration ", ylab="Loan", ol=c(0,5000))
+plot(campaign~y  ,data=bank_20, main="Credict Assessment",
+   xlab="Campaign", ylab="Loan",ol=c(1,56))
+plot(previous~y  ,data=bank_20, main="Credict Assessment",
+   xlab="Previous", ylab="Loan",ol=c(1,56))
+plot(y~emp.var.rate  ,data=bank_20, main="Credict Assessment",
+   xlab="Emp.var.rate", ylab="Loan",ol=c(1,56))
+plot(y~cons.price.idx,data=bank_20, main="Credict Assessment",
+   xlab="Cons.price.idx", ylab="Loan")
+plot(y~cons.conf.idx,data=bank_20, main="Credict Assessment",
+   xlab="cons.conf.idx ", ylab="Loan")
+plot(euribor3m~y,data=bank_20, main="Credict Assessment",
+   xlab="Loan", ylab="euribor3m")
+plot(y~nr.employed,data=bank_20, main="Credict Assessment",
+   xlab="nr.employed", ylab="Loan")
+```
+
+#PCA
+```{r }
+pc.bc<-prcomp(bank_20[,-c(2,3,4,5,6,7,8,9,10,14,21)],scale.=TRUE)
+pc.bc.scores<-pc.bc$x
+
+#Adding the response column to the PC's data frame
+pc.bc.scores<-data.frame(pc.bc.scores)
+pc.bc.scores$loan<-bank_20$y
+
+#Use ggplot2 to plot the first few pc's
+library(ggplot2)
+ggplot(data = pc.bc.scores, aes(x = PC1, y = PC2)) +
+  geom_point(aes(col=Loan), size=1)+
+  ggtitle("PCA of Credict Assessment")
+```
+
+
+```{r }
+
+```
+
+
+```{r }
+
+```
+
+```{r }
+
+```
+
+
+```{r }
+
+```
