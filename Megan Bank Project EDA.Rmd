@@ -94,7 +94,8 @@ no_answer_all = bank_20 %>% filter(y == "no")
 no_indices = sample(dim(no_answer_all)[1], dim(yes_answer)[1])
 no_answer = no_answer_all[no_indices,]
 
-balanced_bank_20 = data.frame(yes_answer, no_answer)
+balanced_bank_20 = rbind(yes_answer, no_answer)
+
 balanced_indices = sample(dim(balanced_bank_20)[1], round(dim(balanced_bank_20)[1] * .1 ))
 balanced_test = balanced_bank_20[balanced_indices,]
 balanced_train = balanced_bank_20[-balanced_indices,]
