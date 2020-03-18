@@ -57,6 +57,29 @@ hist(temp$pdays)
 
 ```
 
+
+
+```{r}
+
+bank_20 %>% ggplot(aes(x = age, y = cons.price.idx, color = y)) + geom_point()
+
+
+bank_20 %>% ggplot(aes(y = age, fill = y)) + geom_boxplot()
+
+bank_20 %>% ggplot(aes(y = duration, fill = y)) + geom_boxplot()
+
+```
+
+## Predicting Duration, in order to predict calls. 
+
+Basically if we know there is a relationship between duration and the result we are predicting, we can use information that explains duration to therefore explain response.
+
+```{r}
+
+duration_model = lm(duration ~ ., data = bank_20)
+
+```
+
 ## Uneven Split in outcomes
 
 Yes happens about 10% of the time, where no is the response 90% of the time. This unbalance makes it difficult to predict. 
@@ -64,5 +87,16 @@ Yes happens about 10% of the time, where no is the response 90% of the time. Thi
 
 
 ```{r}
+
+yes_answer = bank_20 %>% filter(y == "yes")
+
+no_answer_all = bank_20 %>% filter(y == "no")
+no_indices = sample(dim(no_answer_all)[1], dim(yes_answer)[1])
+no_answer = no_answer_all[no_indices,]
+
+balanced_bank_20 = data.frame(yes_answer, no_answer)
+balanced_indices = sample(dim(balanced_bank_20)[1], round(dim(balanced_bank_20)[1] * .1 ))
+balanced_test = balanced_bank_20[balanced_indices,]
+balanced_train = balanced_bank_20[-balanced_indices,]
 
 ```
