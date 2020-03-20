@@ -112,13 +112,13 @@ plot(y~day_of_week,data=bank_20, main="Credict Assessment",
 plot(y~poutcome,data=bank_20, main="Credict Assessment",
    xlab="Poutcome", ylab="Loan")
 plot(duration~y  ,data=bank_20, main="Credict Assessment",
-   xlab="Duration ", ylab="Loan", ol=c(0,5000))
+   xlab="Duration ", ylab="Loan", col=c(0,5000))
 plot(campaign~y  ,data=bank_20, main="Credict Assessment",
-   xlab="Campaign", ylab="Loan",ol=c(1,56))
+   xlab="Campaign", ylab="Loan",col=c(1,56))
 plot(previous~y  ,data=bank_20, main="Credict Assessment",
-   xlab="Previous", ylab="Loan",ol=c(1,56))
+   xlab="Previous", ylab="Loan",col=c(1,56))
 plot(y~emp.var.rate  ,data=bank_20, main="Credict Assessment",
-   xlab="Emp.var.rate", ylab="Loan",ol=c(1,56))
+   xlab="Emp.var.rate", ylab="Loan")
 plot(y~cons.price.idx,data=bank_20, main="Credict Assessment",
    xlab="Cons.price.idx", ylab="Loan")
 plot(y~cons.conf.idx,data=bank_20, main="Credict Assessment",
@@ -128,7 +128,7 @@ plot(euribor3m~y,data=bank_20, main="Credict Assessment",
 plot(y~nr.employed,data=bank_20, main="Credict Assessment",
    xlab="nr.employed", ylab="Loan")
 #bank_20 %>% ggplot(aes(x = age, y = cons.price.idx, color = y)) + geom_point()
-#bank_20 %>% ggplot(aes(y = age, fill = y)) + geom_boxplot()
+#bank_20 %>% ggplot(aes(y = job, fill = job) + geom_boxplot())
 #bank_20 %>% ggplot(aes(y = duration, fill = y)) + geom_boxplot()
 ```
 
@@ -137,7 +137,7 @@ plot(y~nr.employed,data=bank_20, main="Credict Assessment",
 
 #PCA
 ```{r }
-pc.bc<-prcomp(bank_20[,-c(2,3,4,5,6,7,8,9,10,14,21)],scale.=TRUE)
+pc.bc<-prcomp(bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)],scale.=TRUE)
 pc.bc.scores<-pc.bc$x
 
 #Adding the response column to the PC's data frame
@@ -151,9 +151,15 @@ ggplot(data = pc.bc.scores, aes(x = PC1, y = PC2)) +
   ggtitle("PCA of Credict Assessment")
 ```
 
-
+# Heat map
 ```{r }
-
+my.cor<-cor(bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)])
+my.cor
+library(gplots)
+library(ggplot2)
+heatmap.2(my.cor,col=redgreen(75), 
+          density.info="none", trace="none", dendrogram=c("row"), 
+          symm=F,symkey=T,symbreaks=T, scale="none")
 ```
 
 
