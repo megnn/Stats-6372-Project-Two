@@ -41,11 +41,11 @@ library(caret)
 
 # Loading the data
 ```{r }
-bank_20<-read.csv2("bank-additional-full.csv")
+bank_20 = read.csv("bank-additional-full.csv", sep=";")
 head(bank_20)
-bankadit<- read.csv2("bank-additional.csv")
-bank_17<-read.csv2("bank-full.csv")
-bank<-read.csv2("bank.csv")
+bankadit<- read.csv("bank-additional.csv", sep=";")
+bank_17<-read.csv2("bank-full.csv", sep=";")
+bank<-read.csv2("bank.csv", sep=";")
 ```
 
 
@@ -139,7 +139,6 @@ plot(y~nr.employed,data=bank_20, main="Credict Assessment",
 ```{r }
 pc.bc<-prcomp(bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)],scale.=TRUE)
 pc.bc.scores<-pc.bc$x
-
 #Adding the response column to the PC's data frame
 pc.bc.scores<-data.frame(pc.bc.scores)
 pc.bc.scores$loan<-bank_20$y
@@ -147,7 +146,7 @@ pc.bc.scores$loan<-bank_20$y
 #Use ggplot2 to plot the first few pc's
 library(ggplot2)
 ggplot(data = pc.bc.scores, aes(x = PC1, y = PC2)) +
-  geom_point(aes(col=Loan), size=1)+
+  geom_point(aes(col= loan), size=1)+
   ggtitle("PCA of Credict Assessment")
 ```
 
