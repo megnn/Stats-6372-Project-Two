@@ -88,7 +88,7 @@ balanced_train
 
 ```
 
-# Plot EDA
+# Plot EDA in general
 ```{r }
 plot(as.factor(bank_20$y), bank_20$age,xlab="Loan",ylab="Age",title="Credict Assessment")
 plot(y~job,data=bank_20, main="Credict Assessment",
@@ -131,11 +131,81 @@ plot(y~nr.employed,data=bank_20, main="Credict Assessment",
 #bank_20 %>% ggplot(aes(y = job, fill = job) + geom_boxplot())
 #bank_20 %>% ggplot(aes(y = duration, fill = y)) + geom_boxplot()
 ```
+# EDA for categorical values with proportion table
+
+```{r }
+attach(bank_20)
+ftable(addmargins(table(y,job))) 
+job=factor(job)
+
+
+ftable(addmargins(table(y, marital)))
+marital=factor(marital)
+
+
+ftable(addmargins(table(y,education)))
+education=factor(education)
+
+
+ftable(addmargins(table(y,default)))
+education=factor(default)
+
+
+ftable(addmargins(table(y,housing))) 
+job=factor(housing)
+
+
+ftable(addmargins(table(y, loan)))
+marital=factor(loan)
+
+
+ftable(addmargins(table(y,contact)))
+education=factor(contact)
+
+
+ftable(addmargins(table(y,month)))
+education=factor(month)
+
+
+ftable(addmargins(table(y,day_of_week)))
+education=factor(day_of_week)
+
+
+ftable(addmargins(table(y,poutcome)))
+education=factor(poutcome)
+
+#to get proportions that make sense
+prop.table(table(y,job),2)
+prop.table(table(y,education),2)
+prop.table(table(y,default),2)
+prop.table(table(y,housing),2)
+prop.table(table(y,loan),2)
+prop.table(table(y,contact),2)
+prop.table(table(y,month),2)
+prop.table(table(y,day_of_week),2)
+prop.table(table(y,poutcome),2)
+
+#Visualize
+plot(y~job,col=c("red","blue"))
+plot(y~education,col=c("red","blue"))
+plot(y~default,col=c("red","blue"))
+plot(y~marital,col=c("red","blue"))
+plot(y~housing,col=c("red","blue"))
+plot(y~loan,col=c("red","blue"))
+plot(y~contact,col=c("red","blue"))
+plot(y~month,col=c("red","blue"))
+plot(y~day_of_week,col=c("red","blue"))
+plot(y~poutcome,col=c("red","blue"))
+```
+
+
+```{r }
+
+```
 
 
 
-
-#PCA
+#PCA for continuous variables
 ```{r }
 pc.bc<-prcomp(bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)],scale.=TRUE)
 pc.bc.scores<-pc.bc$x
@@ -150,7 +220,7 @@ ggplot(data = pc.bc.scores, aes(x = PC1, y = PC2)) +
   ggtitle("PCA of Credict Assessment")
 ```
 
-# Heat map
+# Heat map for continuous variables
 ```{r }
 my.cor<-cor(bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)])
 my.cor
