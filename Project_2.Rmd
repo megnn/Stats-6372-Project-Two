@@ -45,6 +45,7 @@ library(broom)
 library(plyr)
 library(repr)
 library(ResourceSelection)
+library(ROCR)
 ```
 
 # Loading the data
@@ -284,6 +285,7 @@ oneminusME
 # Forward
 
 ```{r }
+model.main<- glm(y~ ., data=balanced_train,family = binomial(link="logit"))
 model.null<-glm(y ~ 1, data=balanced_train,family = binomial(link="logit"))
 step(model.null,
      scope = list(upper=model.main),
@@ -357,7 +359,42 @@ hoslem.test(forward$y, fitted(forward), g=10)
 
 ```
 
-# Stepwise selection in R
+# ROC curve for the forward model
+
+```{r }
+logr<-glm(y ~ duration + job + contact + day_of_week + pdays + default + previous,data=balanced_train, family=binomial)
+logr.probs<-predict(logr, newdata=balanced_test)
+ME<-c()
+FP<-c()
+FN<-c()
+index<-0:928/928
+for (i in 1:928){
+logr.pred<-rep("no",928)
+logr.pred[logr.probs>index[i]]="yes"
+logr.pred<-factor(logr.pred,levels=c("no","yes"))
+Truth<-balanced_test[,21]
+Pred<-logr.pred
+x<-table(Pred,Truth)
+ME[i]<-(x[1,2]+x[2,1])/sum(x)
+FP[i]<-x[2,1]/(x[2,1]+x[1,1])
+FN[i]<-x[1,2]/(x[1,2]+x[2,2])
+}
+TP= 1-FN
+ord.ind<-order(FP,decreasing=F)
+plot(FP[ord.ind],TP[ord.ind],type="l",col="blue",ylab="True Positive Rate",xlab="False Positive Rate")
+lines(0.60:0.75,0.08:0.16,lty=4,col="black",lwd=1)
+
+simple_auc <- function(TPR, FPR){
+  # inputs already sorted, best scores first 
+  dFPR <- c(diff(FPR), 0)
+  dTPR <- c(diff(TPR), 0)
+  sum(TPR * dFPR) + sum(dTPR * dFPR)/2
+}
+
+paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
+
+```
+# Stepwise selection 
 ```{r }
 full.model <- glm(y ~., data = balanced_train, family = binomial)
 coef(full.model)
@@ -421,7 +458,41 @@ sum(diag(accuracy))/sum(accuracy)
 
 ```
 
+# ROC curve for the stepwise model
 
+```{r }
+logr<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr.probs<-predict(logr, newdata=balanced_test)
+ME<-c()
+FP<-c()
+FN<-c()
+index<-0:928/928
+for (i in 1:928){
+logr.pred<-rep("no",928)
+logr.pred[logr.probs>index[i]]="yes"
+logr.pred<-factor(logr.pred,levels=c("no","yes"))
+Truth<-balanced_test[,21]
+Pred<-logr.pred
+x<-table(Pred,Truth)
+ME[i]<-(x[1,2]+x[2,1])/sum(x)
+FP[i]<-x[2,1]/(x[2,1]+x[1,1])
+FN[i]<-x[1,2]/(x[1,2]+x[2,2])
+}
+TP= 1-FN
+ord.ind<-order(FP,decreasing=F)
+plot(FP[ord.ind],TP[ord.ind],type="l",col="blue",ylab="True Positive Rate",xlab="False Positive Rate")
+lines(0.60:0.75,0.08:0.16,lty=4,col="black",lwd=1)
+
+simple_auc <- function(TPR, FPR){
+  # inputs already sorted, best scores first 
+  dFPR <- c(diff(FPR), 0)
+  dTPR <- c(diff(TPR), 0)
+  sum(TPR * dFPR) + sum(dTPR * dFPR)/2
+}
+
+paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
+
+```
 
 
 # Backward selection
@@ -450,7 +521,7 @@ exp(cbind("Odds ratio" = coef(forward), confint.default(backward, level = 0.95))
 vif(backward)
 ```
 
-# After take of the high vif
+# After take of the high vif for backward selection
 
 ```{r }
 backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
@@ -499,7 +570,41 @@ sum(diag(accuracy))/sum(accuracy)
 ```{r }
 hoslem.test(backwardfinal$y, fitted(backwardfinal), g=10)
 ```
+# ROC curve for the backward model
 
+```{r }
+logr<-glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr.probs<-predict(logr, newdata=balanced_test)
+ME<-c()
+FP<-c()
+FN<-c()
+index<-0:928/928
+for (i in 1:928){
+logr.pred<-rep("no",928)
+logr.pred[logr.probs>index[i]]="yes"
+logr.pred<-factor(logr.pred,levels=c("no","yes"))
+Truth<-balanced_test[,21]
+Pred<-logr.pred
+x<-table(Pred,Truth)
+ME[i]<-(x[1,2]+x[2,1])/sum(x)
+FP[i]<-x[2,1]/(x[2,1]+x[1,1])
+FN[i]<-x[1,2]/(x[1,2]+x[2,2])
+}
+TP= 1-FN
+ord.ind<-order(FP,decreasing=F)
+plot(FP[ord.ind],TP[ord.ind],type="l",col="blue",ylab="True Positive Rate",xlab="False Positive Rate")
+lines(0.60:0.75,0.08:0.16,lty=4,col="black",lwd=1)
+
+simple_auc <- function(TPR, FPR){
+  # inputs already sorted, best scores first 
+  dFPR <- c(diff(FPR), 0)
+  dTPR <- c(diff(TPR), 0)
+  sum(TPR * dFPR) + sum(dTPR * dFPR)/2
+}
+
+paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
+
+```
 # Lasso Feature selection
 ```{r }
 dat.train.x <- model.matrix(y~ .,balanced_train)
@@ -544,10 +649,18 @@ rsq
 ```
 
 
-
+# ROC for the lasso selection model
 
 ```{r }
+pred <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
+roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
+auc.train <- performance(pred, measure = "auc")
+auc.train <- auc.train@y.values
 
+#Plot ROC
+plot(roc.perf,main="LASSO")
+abline(a=0, b= 1) #Ref line indicating poor performance
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
 ```
 
 
@@ -570,6 +683,3 @@ rsq
 #eval_results(dat.test.y, predictions_test, balanced_test)
 #fit.pred <- predict(finalmodel, newy = dat.test, type = "response")
 ```
-
-
-
