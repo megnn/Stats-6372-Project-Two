@@ -652,20 +652,19 @@ rsq
 # ROC for the lasso selection model
 
 ```{r }
-pred <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
-roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
-auc.train <- performance(pred, measure = "auc")
+# Predict from model
+preds <- predict(finalmodel, newx = dat.test.x, type = 'response')
+
+# Calculate true positive rate and false positive rate on the prediction object
+perf <- performance(prediction(preds, dat.test.y), 'tpr', 'fpr')
+
+auc.train <- performance(prediction(preds, dat.test.y), measure = "auc")
 auc.train <- auc.train@y.values
 
 #Plot ROC
-plot(roc.perf,main="LASSO")
+plot(perf,main="LASSO")
 abline(a=0, b= 1) #Ref line indicating poor performance
 text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
-```
-
-
-
-```{r }
 
 ```
 
@@ -678,8 +677,20 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
 
 # Extra code to use if we need later
 ```{r }
+# prediction with step method
 #eval_results(y_train, predictions_train, balanced_train)
 #predictions_test <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
 #eval_results(dat.test.y, predictions_test, balanced_test)
 #fit.pred <- predict(finalmodel, newy = dat.test, type = "response")
+
+# ROC curve with lasso
+#pred <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
+#roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
+#auc.train <- performance(pred, measure = "auc")
+#auc.train <- auc.train@y.values
+#Plot ROC
+#plot(roc.perf,main="LASSO")
+#abline(a=0, b= 1) #Ref line indicating poor performance
+#text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+```
 ```
