@@ -46,15 +46,13 @@ library(plyr)
 library(repr)
 library(ResourceSelection)
 library(ROCR)
+library(pROC)
 ```
 
 # Loading the data
 ```{r }
 bank_20 = read.csv("bank-additional-full.csv", sep=";")
 head(bank_20)
-bankadit<- read.csv("bank-additional.csv", sep=";")
-bank_17<-read.csv2("bank-full.csv", sep=";")
-bank<-read.csv2("bank.csv", sep=";")
 ```
 
 
@@ -67,7 +65,6 @@ summary(bank_20)
 ```{r }
 #Does not look like any NAs in either data set
 sapply(bank_20, function(x) sum(is.na(x)))
-sapply(bank_17, function(x) sum(is.na(x)))
 ```
 
 #pdays- about 40k of the 41k are at level 999, no previous contact 
@@ -91,15 +88,15 @@ balanced_bank_20 = rbind(yes_answer, no_answer)
 
 balanced_indices = sample(dim(balanced_bank_20)[1], round(dim(balanced_bank_20)[1] * .1 ))
 balanced_test = balanced_bank_20[balanced_indices,]
-balanced_test
+head(balanced_test)
 balanced_train = balanced_bank_20[-balanced_indices,]
-balanced_train
+head(balanced_train)
 
 ```
 
 # Plot EDA in general for continuous variables
 ```{r }
-plot(as.factor(bank_20$y), bank_20$age,xlab="Loan",ylab="Age",title="Credict Assessment")
+boxplot(bank_20$age~bank_20$y,xlab="Loan",ylab="Age",title="Credict Assessment",col=c("lightblue","orange"))
 
 p1= bank_20 %>% ggplot(aes(x = duration,  y = y , fill = y)) 
 p2= p1+ geom_col() + labs(title = "Credict Approval", x= "Duration", y= "Aproved loan") 
@@ -107,11 +104,9 @@ p3= p2+ theme( axis.text = element_text(size = rel(0.8),angle =45, hjust = 1, vj
 p4= p3 + scale_x_continuous(limits = c(0, 2500))
 p4
 
-plot(campaign~y  ,data=bank_20, main="Credict Assessment",
-   xlab="Campaign", ylab="Loan",col=c(1,56))
+boxplot(bank_20$campaign~bank_20$y,xlab="Loan",ylab="Campaign",title="Credict Assessment",col=c("lightblue","orange"))
 
-plot(previous~y  ,data=bank_20, main="Credict Assessment",
-   xlab="Previous", ylab="Loan",col=c(1,56))
+boxplot(bank_20$previous~bank_20$y,xlab="Loan",ylab="Previous",title="Credict Assessment",col=c("lightblue","orange"))
 
 p1= bank_20 %>% ggplot(aes(x = emp.var.rate,  y = y , fill = y)) 
 p2= p1+ geom_col() + labs(title = "Credict Approval", x= "Emp Var Rate", y= "Aproved loan") 
@@ -364,6 +359,8 @@ hoslem.test(forward$y, fitted(forward), g=10)
 ```{r }
 logr<-glm(y ~ duration + job + contact + day_of_week + pdays + default + previous,data=balanced_train, family=binomial)
 logr.probs<-predict(logr, newdata=balanced_test)
+roccurve <- roc(balanced_test$y ~ logr.probs)
+plot(roccurve)
 ME<-c()
 FP<-c()
 FN<-c()
@@ -381,9 +378,8 @@ FN[i]<-x[1,2]/(x[1,2]+x[2,2])
 }
 TP= 1-FN
 ord.ind<-order(FP,decreasing=F)
-plot(FP[ord.ind],TP[ord.ind],type="l",col="blue",ylab="True Positive Rate",xlab="False Positive Rate")
-lines(0.60:0.75,0.08:0.16,lty=4,col="black",lwd=1)
-
+FP[ord.ind]
+TP[ord.ind]
 simple_auc <- function(TPR, FPR){
   # inputs already sorted, best scores first 
   dFPR <- c(diff(FPR), 0)
@@ -392,7 +388,6 @@ simple_auc <- function(TPR, FPR){
 }
 
 paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
-
 ```
 # Stepwise selection 
 ```{r }
@@ -463,6 +458,8 @@ sum(diag(accuracy))/sum(accuracy)
 ```{r }
 logr<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
 logr.probs<-predict(logr, newdata=balanced_test)
+roccurve <- roc(balanced_test$y ~ logr.probs)
+plot(roccurve)
 ME<-c()
 FP<-c()
 FN<-c()
@@ -480,9 +477,8 @@ FN[i]<-x[1,2]/(x[1,2]+x[2,2])
 }
 TP= 1-FN
 ord.ind<-order(FP,decreasing=F)
-plot(FP[ord.ind],TP[ord.ind],type="l",col="blue",ylab="True Positive Rate",xlab="False Positive Rate")
-lines(0.60:0.75,0.08:0.16,lty=4,col="black",lwd=1)
-
+FP[ord.ind]
+TP[ord.ind]
 simple_auc <- function(TPR, FPR){
   # inputs already sorted, best scores first 
   dFPR <- c(diff(FPR), 0)
@@ -575,6 +571,8 @@ hoslem.test(backwardfinal$y, fitted(backwardfinal), g=10)
 ```{r }
 logr<-glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
 logr.probs<-predict(logr, newdata=balanced_test)
+roccurve <- roc(balanced_test$y ~ logr.probs)
+plot(roccurve)
 ME<-c()
 FP<-c()
 FN<-c()
@@ -592,9 +590,8 @@ FN[i]<-x[1,2]/(x[1,2]+x[2,2])
 }
 TP= 1-FN
 ord.ind<-order(FP,decreasing=F)
-plot(FP[ord.ind],TP[ord.ind],type="l",col="blue",ylab="True Positive Rate",xlab="False Positive Rate")
-lines(0.60:0.75,0.08:0.16,lty=4,col="black",lwd=1)
-
+FP[ord.ind]
+TP[ord.ind]
 simple_auc <- function(TPR, FPR){
   # inputs already sorted, best scores first 
   dFPR <- c(diff(FPR), 0)
