@@ -1,0 +1,281 @@
+---
+title: "Bank EDA"
+author: "Megan Riley"
+output: pdf_document
+---
+
+```{r Setup}
+library(readr)
+library(tidyverse)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(here)
+library(GGally)
+library(ResourceSelection)
+library(car)
+library(caret)
+
+root = here()
+
+
+bank_20 = read.csv(paste(root,"/data/bank-additional/bank-additional-full.csv", sep = ""), sep=";")
+
+bank_17 = read.csv(paste(root,"/data/bank/bank-full.csv", sep = ""), sep = ";")
+
+
+
+```
+
+## Summary
+
+Unknown whether we should work with both data sets or if Dr. Turner is good with us choosing one. My vote is for bank_20 if we can choose. 
+
+Variable Notes: 
+-Duration is a variable not known until Y is determined, duration is the duration of the call when attempting to sell the term deposit package.  
+- No NAs, uses unknown in places otherwise
+-Campaign is  # of contacts, minimum 1 b/c it includes this contact in the data, even if hte contact was unsuccessful
+-pdays needs to be potentially cleaned where 999 should equal NA or potentially switched to a categorical variable
+-Do not understand some of the later variables, seem to be more socially based. 
+
+
+```{r}
+#Dr Turner is heavily requesting summary stats
+summary(bank_20)
+
+#Does not look like any NAs in either data set
+sapply(bank_20, function(x) sum(is.na(x)))
+sapply(bank_17, function(x) sum(is.na(x)))
+
+#Set any predictions without using Duration or Y
+
+
+```
+
+
+## Data Preprocessing
+
+Pdays is a major variable that needs correcting, the large inclusion of the 999 category requires either splitting the variable or turning it into a categorical with bins. The first option will be used to create one boolean variable that indicates whether a customer has been contacted before(where the 999 code indicates they have not been) and another variable with 
+
+
+```{r}
+
+clean_bank_20 = as.data.frame(bank_20)
+#pdays- about 40k of the 41k are at level 999, no previous contact 
+#could bin this data 
+hist(bank_20$pdays)
+
+temp = bank_20 %>% filter(pdays != 999)
+dim(temp)
+hist(temp$pdays)
+summary(temp$pdays)
+
+#within 5 days, 10 , 15, 30 and never
+
+clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
+                     bank_20$pdays >= 15 ~ "Within 30 Days", 
+                     bank_20$pdays >= 10 & bank_20$pdays < 15 ~ "Within 15 Days",
+                     bank_20$pdays >= 5 & bank_20$pdays < 10 ~ "Within 10 Days",
+                     bank_20$pdays < 5 ~ "Within 5 Days") 
+
+clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
+
+
+```
+
+## EDA Plots of Specific Variables by Y Response
+
+
+```{r}
+
+#Age 
+clean_bank_20 %>% ggplot(aes(y= age,fill = y)) + geom_boxplot() + ggtitle("Distribution of Age by Status of Response")
+
+#Job
+clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_bar(position = "fill")
+
+
+#Marital
+clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_bar(position = "fill")
+
+
+
+#Education
+clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_bar(position = "fill")
+
+#Default
+clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_bar(position = "fill")
+
+
+#Housing
+clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_bar(position = "fill")
+
+
+#Loan
+
+clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_bar(position = "fill")
+
+#Contact
+clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_bar(position = "fill")
+
+
+#Month
+clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_bar(position = "fill")
+
+
+#Day_of_week
+clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_bar(position = "fill")
+
+
+#duration
+
+clean_bank_20 %>% ggplot(aes(y = duration, fill = y)) + geom_boxplot() + ggtitle("Duration by Status of Response")
+
+clean_bank_20 %>% ggplot(aes(y = log(duration), fill = y)) + geom_boxplot() + ggtitle("Logged Duration by Status of Response")
+
+#Campaign
+
+
+
+#newPdays
+
+clean_bank_20 %>% ggplot(aes(x =newpdays, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = newpdays, fill = y)) + geom_bar(position = "fill")
+
+
+#Previous
+
+
+
+#poutcome
+clean_bank_20 %>% ggplot(aes(x =poutcome, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = poutcome, fill = y)) + geom_bar(position = "fill")
+
+
+#emp.var.rate
+clean_bank_20 %>% ggplot(aes(y = emp.var.rate, fill = y)) + geom_boxplot() + ggtitle("emp.var.rate by Status of Response")
+boxplot(clean_bank_20$emp.var.rate)
+
+
+#cons.price.idx
+clean_bank_20 %>% ggplot(aes(y = cons.price.idx, fill = y)) + geom_boxplot() + ggtitle("CPI by Status of Response")
+
+#something here potentially, but is messy
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.price.idx, fill = y)) + geom_boxplot() + ggtitle("CPI by month  by Status of Response")
+
+
+#CCI and CPI
+
+clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, y = cons.price.idx, color = y)) + geom_jitter() + ggtitle("CPI by month  by Status of Response")
+
+
+#cons.conf.idx
+clean_bank_20 %>% ggplot(aes(y = cons.conf.idx, fill = y)) + geom_boxplot() + ggtitle("CCI by Status of Response")
+
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, color = y)) + geom_point() + ggtitle("CCI by month  by Status of Response")
+
+
+clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, fill = y)) + geom_histogram(stat = "count") + ggtitle("CCI by Status of Response")
+
+
+
+
+#euribor3m
+
+#nr.employed
+
+
+#working with the ftables
+
+#probs needs to be a factor
+#ftable(addmargins(clean_bank_20$y, clean_bank_20$month))
+
+```
+
+
+## Multicolinearity and Interactions
+
+We need to check our multicolinearity between predictor variables as well as interactions, for example, month information of a cyclical nature may be reflected in some of the economic indicators or dependent on them. 
+
+
+```{r}
+
+#Multicoliniearity in the continuous variables. 
+cont_bank = clean_bank_20[,c(1,11,12,13,15,16,17,18,19)]
+ggcorr(cont_bank, label = TRUE, hjust = 1  )
+
+```
+
+
+## Predicting Duration, in order to predict calls. 
+
+Basically if we know there is a strong relationship between duration and the result we are predicting, we can use information that explains duration to therefore explain response. Since it is invalid to use duratuion in my opinion.
+
+- Is this valid? Possibly? 
+- Is it helpful? Maybe? 
+
+```{r}
+
+duration_model = lm(duration ~ ., data = bank_20)
+
+```
+
+## Uneven Split in outcomes
+
+Yes happens about 10% of the time, where no is the response 90% of the time. This unbalance makes it difficult to predict. 
+- Can balance the train/test split, what else have we learned about predicting unbalanced outcomes? 
+
+
+
+```{r}
+
+yes_answer = bank_20 %>% filter(y == "yes")
+
+no_answer_all = bank_20 %>% filter(y == "no")
+no_indices = sample(dim(no_answer_all)[1], dim(yes_answer)[1])
+no_answer = no_answer_all[no_indices,]
+
+balanced_bank_20 = rbind(yes_answer, no_answer)
+
+balanced_indices = sample(dim(balanced_bank_20)[1], round(dim(balanced_bank_20)[1] * .1 ))
+balanced_test = balanced_bank_20[balanced_indices,]
+balanced_train = balanced_bank_20[-balanced_indices,]
+
+```
+
+## Simple Baseline Predictions
+
+```{r}
+#using a handful of vars I identified as probably useful on a first pass
+simple.model = glm(y~ job + marital + month + newpdays + poutcome, data = clean_bank_20, family = binomial(link = "logit"))
+
+#VIF of simple model
+
+(vif(simple.model)[,3])^2
+
+#Prediction of simple model
+pred = ifelse(simple.model$fitted.values > .5, 1, 0)
+predtable = table(pred, clean_bank_20$y )
+predtable
+
+#prediction of full model
+
+full.model = glm(y~ age+ job + marital + education + default + housing + loan + contact
+                 + month + day_of_week + campaign + previous + poutcome + emp.var.rate + 
+                   cons.price.idx + cons.conf.idx + euribor3m + nr.employed + newpdays , data = clean_bank_20 , family = binomial(link="logit"))
+
+fullpred = ifelse(full.model$fitted.values > .5, 1,0)
+fullpredtable = table(fullpred, clean_bank_20$y)
+fullpredtable
+
+```
+
