@@ -76,6 +76,24 @@ dim(temp)
 hist(temp$pdays)
 ```
 
+
+```{r }
+#temp = bank_20 %>% filter(pdays != 999)
+#dim(temp)
+#hist(temp$pdays)
+#summary(temp$pdays)
+#within 5 days, 10 , 15, 30 and never
+#clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
+                     #bank_20$pdays >= 15 ~ "Within 30 Days", 
+                     #bank_20$pdays >= 10 & bank_20$pdays < 15 ~ "Within 15 Days",
+                     #bank_20$pdays >= 5 & bank_20$pdays < 10 ~ "Within 10 Days",
+                     #bank_20$pdays < 5 ~ "Within 5 Days") 
+#clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
+```
+
+
+
+
 # Reshape for a balance data
 ```{r }
 yes_answer = bank_20 %>% filter(y == "yes")
@@ -302,14 +320,13 @@ forward
 
 # Forward Odd ratio
 ```{r }
-summary(forward)
 exp(cbind("Odds ratio" = coef(forward), confint.default(forward, level = 0.95)))
 vif(forward)
 ```
 
 # Take off the high VIF variances 
 ```{r }
-forward2<- glm(formula = y ~ duration + job + contact + day_of_week + pdays + default + previous, family = binomial(link = "logit"), data = balanced_train)
+forward2<- glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
 forward2
 ```
 
@@ -330,7 +347,7 @@ summary(forward2)
 # Prediction with the forward selection
 
 ```{r }
-logr<-glm(y ~ duration + job + contact + day_of_week + pdays + default + previous,data=balanced_train, family=binomial)
+logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
 
 # 1 way
 logr.probs<-predict(logr, newdata=balanced_test)
@@ -354,13 +371,11 @@ hoslem.test(forward$y, fitted(forward), g=10)
 
 ```
 
-# ROC curve for the forward model
+# Sens/spec for forward model
 
 ```{r }
-logr<-glm(y ~ duration + job + contact + day_of_week + pdays + default + previous,data=balanced_train, family=binomial)
+logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
 logr.probs<-predict(logr, newdata=balanced_test)
-roccurve <- roc(balanced_test$y ~ logr.probs)
-plot(roccurve)
 ME<-c()
 FP<-c()
 FN<-c()
@@ -372,23 +387,49 @@ logr.pred<-factor(logr.pred,levels=c("no","yes"))
 Truth<-balanced_test[,21]
 Pred<-logr.pred
 x<-table(Pred,Truth)
-ME[i]<-(x[1,2]+x[2,1])/sum(x)
-FP[i]<-x[2,1]/(x[2,1]+x[1,1])
-FN[i]<-x[1,2]/(x[1,2]+x[2,2])
+ME<-(x[1,2]+x[2,1])/sum(x)
+FP<-x[2,1]/(x[2,1]+x[1,1])
+FN<-x[1,2]/(x[1,2]+x[2,2])
 }
 TP= 1-FN
-ord.ind<-order(FP,decreasing=F)
-FP[ord.ind]
-TP[ord.ind]
-simple_auc <- function(TPR, FPR){
-  # inputs already sorted, best scores first 
-  dFPR <- c(diff(FPR), 0)
-  dTPR <- c(diff(TPR), 0)
-  sum(TPR * dFPR) + sum(dTPR * dFPR)/2
-}
-
-paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
+TP
+ME
+FP
+FN
 ```
+
+# ROC curve for the forward model
+```{r }
+dat.train.x <- as.data.frame(balanced_train)
+dat.train.y <- balanced_train$y
+dat.train.y <- as.factor(as.character(dat.train.y))
+dat.test.x<-as.data.frame(balanced_test)
+dat.test.y<- balanced_test$y
+dat.test.y <- as.factor(as.character(dat.test.y))
+
+logr1<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
+logr.probs1<-predict(logr1, newdata=dat.test.x)
+
+#Compare the prediction to the real outcome
+head(logr.probs1)
+head(dat.train.y)
+
+#Create ROC curves
+pred1 <- prediction(logr.probs1, dat.test.y)
+roc.perf1 = performance(pred1, measure = "tpr", x.measure = "fpr")
+auc.train1 <- performance(pred1, measure = "auc")
+auc.train1 <- auc.train1@y.values
+
+#Plot ROC
+plot(roc.perf1)
+abline(a=0, b= 1) #Ref line indicating poor performance
+text(x = .40, y = .6,paste("AUC = ", round(auc.train1[[1]],3), sep = ""))
+
+```
+
+
+
+
 # Stepwise selection 
 ```{r }
 full.model <- glm(y ~., data = balanced_train, family = binomial)
@@ -410,11 +451,12 @@ mean(predicted.classes == observed.classes)
 
 ```
 
-
+# Summary for the stepwise model
 ```{r }
 summary(step.model)
 ```
 
+# Plot the stepwise model
 ```{r }
 plot(step.model)
 ```
@@ -435,7 +477,7 @@ vif(step.model)
 # Prediction with the stepwise  selection after taking care of the high vif
 
 ```{r }
-logr<- glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr<- glm(y ~ job + education + default + contact +duration + poutcome + campaign + month, family = binomial(link = "logit"),data = balanced_train)
 
 # 1 way
 logr.probs<-predict(logr, newdata=balanced_test)
@@ -453,13 +495,11 @@ sum(diag(accuracy))/sum(accuracy)
 
 ```
 
-# ROC curve for the stepwise model
+# Sens/spec for stepwise model
 
 ```{r }
 logr<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
 logr.probs<-predict(logr, newdata=balanced_test)
-roccurve <- roc(balanced_test$y ~ logr.probs)
-plot(roccurve)
 ME<-c()
 FP<-c()
 FN<-c()
@@ -471,25 +511,47 @@ logr.pred<-factor(logr.pred,levels=c("no","yes"))
 Truth<-balanced_test[,21]
 Pred<-logr.pred
 x<-table(Pred,Truth)
-ME[i]<-(x[1,2]+x[2,1])/sum(x)
-FP[i]<-x[2,1]/(x[2,1]+x[1,1])
-FN[i]<-x[1,2]/(x[1,2]+x[2,2])
+ME<-(x[1,2]+x[2,1])/sum(x)
+FP<-x[2,1]/(x[2,1]+x[1,1])
+FN<-x[1,2]/(x[1,2]+x[2,2])
 }
 TP= 1-FN
-ord.ind<-order(FP,decreasing=F)
-FP[ord.ind]
-TP[ord.ind]
-simple_auc <- function(TPR, FPR){
-  # inputs already sorted, best scores first 
-  dFPR <- c(diff(FPR), 0)
-  dTPR <- c(diff(TPR), 0)
-  sum(TPR * dFPR) + sum(dTPR * dFPR)/2
-}
-
-paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
+TP
+ME
+FP
+FN
 
 ```
 
+
+# ROC curve for the stepwise model
+```{r }
+dat.train.x <- as.data.frame(balanced_train)
+dat.train.y <- balanced_train$y
+dat.train.y <- as.factor(as.character(dat.train.y))
+dat.test.x<-as.data.frame(balanced_test)
+dat.test.y<- balanced_test$y
+dat.test.y <- as.factor(as.character(dat.test.y))
+
+logr2<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr.probs2<-predict(logr2, newdata=dat.test.x)
+
+#Compare the prediction to the real outcome
+head(logr.probs2)
+head(dat.train.y)
+
+#Create ROC curves
+pred2 <- prediction(logr.probs2, dat.test.y)
+roc.perf2 = performance(pred2, measure = "tpr", x.measure = "fpr")
+auc.train2 <- performance(pred2, measure = "auc")
+auc.train2 <- auc.train2@y.values
+
+#Plot ROC
+plot(roc.perf2)
+abline(a=0, b= 1) #Ref line indicating poor performance
+text(x = .40, y = .6,paste("AUC = ", round(auc.train2[[1]],3), sep = ""))
+
+```
 
 # Backward selection
 ```{r }
@@ -520,21 +582,20 @@ vif(backward)
 # After take of the high vif for backward selection
 
 ```{r }
-backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train)
 backwardfinal
 ```
-
+# VIF and odd ratio for backward model
 ```{r }
-summary(backwardfinal)
 exp(cbind("Odds ratio" = coef(forward), confint.default(backward, level = 0.95)))
 vif(backwardfinal)
 ```
 
-
+# Summary for backward model
 ```{r }
 summary(backwardfinal)
 ```
-
+# Plot backward model
 ```{r }
 plot(backwardfinal)
 ```
@@ -566,13 +627,11 @@ sum(diag(accuracy))/sum(accuracy)
 ```{r }
 hoslem.test(backwardfinal$y, fitted(backwardfinal), g=10)
 ```
-# ROC curve for the backward model
+# Sens/spec for backward model
 
 ```{r }
-logr<-glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr<-glm(y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train)
 logr.probs<-predict(logr, newdata=balanced_test)
-roccurve <- roc(balanced_test$y ~ logr.probs)
-plot(roccurve)
 ME<-c()
 FP<-c()
 FN<-c()
@@ -584,24 +643,48 @@ logr.pred<-factor(logr.pred,levels=c("no","yes"))
 Truth<-balanced_test[,21]
 Pred<-logr.pred
 x<-table(Pred,Truth)
-ME[i]<-(x[1,2]+x[2,1])/sum(x)
-FP[i]<-x[2,1]/(x[2,1]+x[1,1])
-FN[i]<-x[1,2]/(x[1,2]+x[2,2])
+ME<-(x[1,2]+x[2,1])/sum(x)
+FP<-x[2,1]/(x[2,1]+x[1,1])
+FN<-x[1,2]/(x[1,2]+x[2,2])
 }
 TP= 1-FN
-ord.ind<-order(FP,decreasing=F)
-FP[ord.ind]
-TP[ord.ind]
-simple_auc <- function(TPR, FPR){
-  # inputs already sorted, best scores first 
-  dFPR <- c(diff(FPR), 0)
-  dTPR <- c(diff(TPR), 0)
-  sum(TPR * dFPR) + sum(dTPR * dFPR)/2
-}
-
-paste("AUC=", simple_auc(TP[ord.ind],FP[ord.ind]),sep=" ")
+TP
+ME
+FP
+FN
 
 ```
+
+# ROC curve for the backward model
+```{r }
+dat.train.x <- as.data.frame(balanced_train)
+dat.train.y <- balanced_train$y
+dat.train.y <- as.factor(as.character(dat.train.y))
+dat.test.x<-as.data.frame(balanced_test)
+dat.test.y<- balanced_test$y
+dat.test.y <- as.factor(as.character(dat.test.y))
+
+logr3<- glm(y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train)
+logr.probs3<-predict(logr3, newdata=balanced_test)
+
+#Compare the prediction to the real outcome
+head(logr.probs3)
+head(dat.train.y)
+
+#Create ROC curves
+pred3 <- prediction(logr.probs3, dat.test.y)
+roc.perf3 = performance(pred3, measure = "tpr", x.measure = "fpr")
+auc.train3 <- performance(pred3, measure = "auc")
+auc.train3 <- auc.train3@y.values
+
+#Plot ROC
+plot(roc.perf1)
+abline(a=0, b= 1) #Ref line indicating poor performance
+text(x = .40, y = .6,paste("AUC = ", round(auc.train3[[1]],3), sep = ""))
+
+```
+
+
 # Lasso Feature selection
 ```{r }
 dat.train.x <- model.matrix(y~ .,balanced_train)
@@ -646,6 +729,43 @@ rsq
 ```
 
 
+# Confusion matrix
+```{r }
+logr.pred<-pred
+logr.pred<-rep("No",928)
+logr.pred[logr.probs>.5]="Yes"
+Truth<-balanced_test[,21]
+Pred<-logr.pred
+ftable(addmargins(table(Pred,Truth)))
+
+# 2 way
+pred = predict(logr, newdata=balanced_test)
+accuracy <- table(pred, balanced_test[,21])
+sum(diag(accuracy))/sum(accuracy)
+```
+
+# Sens/spec for lasso model
+
+```{r }
+logr.pred<-pred
+logr.pred<-rep("No",928)
+logr.pred[logr.probs>.5]="Yes"
+Truth<-balanced_test[,21]
+Pred<-logr.pred
+x<- ftable(addmargins(table(Pred,Truth)))
+
+ME<-(x[1,2]+x[2,1])/sum(x)
+FP<-x[2,1]/(x[2,1]+x[1,1])
+FN<-x[1,2]/(x[1,2]+x[2,2])
+TP= 1-FN
+TP
+ME
+FP
+FN
+```
+
+
+
 # ROC for the lasso selection model
 
 ```{r }
@@ -666,28 +786,42 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
 ```
 
 
-
+# Jusnt another way of doing
 ```{r }
-
-```
-
-
-# Extra code to use if we need later
-```{r }
-# prediction with step method
-#eval_results(y_train, predictions_train, balanced_train)
-#predictions_test <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
-#eval_results(dat.test.y, predictions_test, balanced_test)
-#fit.pred <- predict(finalmodel, newy = dat.test, type = "response")
-
-# ROC curve with lasso
-#pred <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
-#roc.perf = performance(pred, measure = "tpr", x.measure = "fpr")
-#auc.train <- performance(pred, measure = "auc")
-#auc.train <- auc.train@y.values
+pred <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
+roc.perfl = performance(prediction(pred, dat.test.y), 'tpr', 'fpr')
+auc.train <- performance(prediction(pred, dat.test.y), measure = 'auc')
+auc.train <- auc.train@y.values
 #Plot ROC
-#plot(roc.perf,main="LASSO")
-#abline(a=0, b= 1) #Ref line indicating poor performance
-#text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
+plot(roc.perfl,main="LASSO")
+abline(a=0, b= 1) #Ref line indicating poor performance
+text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
 ```
+
+
+
+# Compare ROC
+```{r }
+plot( roc.perf1, colorize = TRUE)
+plot(roc.perf2, add = TRUE, colorize = TRUE)
+plot(roc.perf3, add = TRUE, colorize = TRUE)
+plot(roc.perfl, add = TRUE, colorize = TRUE)
+abline(a=0, b= 1)
+
+#without color for cutoff; but adding colors to allow for comarisons of the curves
+plot( roc.perf1, col="black", add = TRUE)
+plot(roc.perf2,col="orange", add = TRUE)
+plot(roc.perf3,col="blue", add = TRUE)
+plot(roc.perfl,col="yellow", add = TRUE)
+legend("bottomright",legend=c("Forward","Stepwise","Backward", "Lasso"),col=c("black","orange","blue","yellow"),lty=1,lwd=1)
+abline(a=0, b= 1)
 ```
+
+
+
+```{r }
+
+```
+
+
+
