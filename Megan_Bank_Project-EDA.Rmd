@@ -81,6 +81,17 @@ clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
 clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
 
 
+#Dr Turner's other suggestion 
+#Set up a categorical variable to turn the continuous variable on or off. 
+#any use of this would have to be both in tandem
+#ie y ~ altpdays_cat*altpdays_cont
+alt_pdays_cat = ifelse(bank_20$pdays == 999, 0, 1)
+#remains the same as original pdays, 
+
+alt_clean_bank_20 = bank_20
+alt_clean_bank_20$pdays_cat = alt_pdays_cat
+
+
 ```
 
 ## EDA Plots of Specific Variables by Y Response
@@ -213,6 +224,24 @@ We need to check our multicolinearity between predictor variables as well as int
 cont_bank = clean_bank_20[,c(1,11,12,13,15,16,17,18,19)]
 ggcorr(cont_bank, label = TRUE, hjust = 1  )
 
+#Interactions on Categorical Variables
+
+#Job and Marital interaction 
+clean_bank_20 %>% ggplot(aes(x = job, fill = marital))  + geom_bar(position = "fill")
+
+#Continuous + Categorical
+clean_bank_20 %>% ggplot(aes(x = job, y = nr.employed, fill = y)) + geom_boxplot()
+
+clean_bank_20 %>% ggplot(aes(x = job, y = cons.conf.idx, fill = y)) + geom_boxplot()
+
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, fill = y)) + geom_boxplot()
+
+clean_bank_20 %>% ggplot(aes(x = month, y = log(duration), fill = y)) + geom_boxplot()
+
+#Continuous + Continous
+
+clean_bank_20 %>% ggplot(aes(x = euribor3m, y = cons.conf.idx, color = y)) + geom_jitter()
+
 ```
 
 
@@ -237,18 +266,19 @@ Yes happens about 10% of the time, where no is the response 90% of the time. Thi
 
 
 ```{r}
+#Currently produces a train set of 52 n / 48 y
+#90/10 yes train test split
 
-yes_answer = bank_20 %>% filter(y == "yes")
+yes_indices = which(clean_bank_20$y == "yes")
+yes_train_indices = sample(yes_indices, length(yes_indices) * .9)
+no_indices = which(clean_bank_20$y == "no")
+#
+no_train_indices = sample(no_indices, length(yes_indices))
+train_indices = c(no_train_indices,yes_train_indices)
 
-no_answer_all = bank_20 %>% filter(y == "no")
-no_indices = sample(dim(no_answer_all)[1], dim(yes_answer)[1])
-no_answer = no_answer_all[no_indices,]
+balanced_train_bank_20 = clean_bank_20[train_indices,]
 
-balanced_bank_20 = rbind(yes_answer, no_answer)
-
-balanced_indices = sample(dim(balanced_bank_20)[1], round(dim(balanced_bank_20)[1] * .1 ))
-balanced_test = balanced_bank_20[balanced_indices,]
-balanced_train = balanced_bank_20[-balanced_indices,]
+test_bank_20 = clean_bank_20[-train_indices,]
 
 ```
 
@@ -256,7 +286,7 @@ balanced_train = balanced_bank_20[-balanced_indices,]
 
 ```{r}
 #using a handful of vars I identified as probably useful on a first pass
-simple.model = glm(y~ job + marital + month + newpdays + poutcome, data = clean_bank_20, family = binomial(link = "logit"))
+simple.model = glm(y~ job + marital + month + newpdays + poutcome, data = balanced_train, family = binomial(link = "logit"))
 
 #VIF of simple model
 
