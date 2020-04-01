@@ -92,25 +92,24 @@ hist(temp$pdays)
 ```
 
 
-
-
 # Reshape for a balance data
 ```{r }
-yes_answer = bank_20 %>% filter(y == "yes")
+clean_bank_20<-bank_20
+yes_indices = which(clean_bank_20$y == "yes")
+yes_train_indices = sample(yes_indices, length(yes_indices) * .9)
+no_indices = which(clean_bank_20$y == "no")
+no_train_indices = sample(no_indices, length(yes_indices))
+train_indices = c(no_train_indices,yes_train_indices)
 
-no_answer_all = bank_20 %>% filter(y == "no")
-no_indices = sample(dim(no_answer_all)[1], dim(yes_answer)[1])
-no_answer = no_answer_all[no_indices,]
-
-balanced_bank_20 = rbind(yes_answer, no_answer)
-
-balanced_indices = sample(dim(balanced_bank_20)[1], round(dim(balanced_bank_20)[1] * .1 ))
-balanced_test = balanced_bank_20[balanced_indices,]
-head(balanced_test)
-balanced_train = balanced_bank_20[-balanced_indices,]
-head(balanced_train)
+balanced_train_bank_20 = clean_bank_20[train_indices,]
+head(balanced_train_bank_20)
+test_bank_20 = clean_bank_20[-train_indices,]
+head(test_bank_20)
 
 ```
+
+
+
 
 # Plot EDA in general for continuous variables
 ```{r }
@@ -275,11 +274,11 @@ ggcorr(df, palette = "RdBu", label = TRUE)
 # Running LDA
 ```{r }
 # Build X_train, y_train, X_test, y_test
-X_train <- balanced_train[,-c(2,3,4,5,6,7,8,9,10,15,21)]
-y_train<-balanced_train[,21]
+X_train <- balanced_train_bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)]
+y_train<-balanced_train_bank_20[,21]
 
-X_test <- balanced_test[,-c(2,3,4,5,6,7,8,9,10,15,21)]
-y_test <- balanced_test[,21]
+X_test <- test_bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)]
+y_test <- test_bank_20[,21]
 mylda<-lda(y ~ age + duration + campaign+pdays + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data= balanced_train)
 pred<-predict(mylda,newdata=X_test )$class  
 Truth<-y_test
@@ -298,8 +297,8 @@ oneminusME
 # Forward
 
 ```{r }
-model.main<- glm(y~ ., data=balanced_train,family = binomial(link="logit"))
-model.null<-glm(y ~ 1, data=balanced_train,family = binomial(link="logit"))
+model.main<- glm(y~ ., balanced_train_bank_20,family = binomial(link="logit"))
+model.null<-glm(y ~ 1, data=balanced_train_bank_20,family = binomial(link="logit"))
 step(model.null,
      scope = list(upper=model.main),
      direction="forward",
@@ -347,19 +346,19 @@ summary(forward2)
 # Prediction with the forward selection
 
 ```{r }
-logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
+logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data =  balanced_train_bank_20)
 
 # 1 way
-logr.probs<-predict(logr, newdata=balanced_test)
-logr.pred<-rep("No",928)
+logr.probs<-predict(logr, newdata=test_bank_20)
+logr.pred<-rep("No",32372)
 logr.pred[logr.probs>.5]="Yes"
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 ftable(addmargins(table(Pred,Truth)))
 
 # 2 way
-pred = predict(logr, newdata=balanced_test)
-accuracy <- table(pred, balanced_test[,21])
+pred = predict(logr, newdata=test_bank_20)
+accuracy <- table(pred, test_bank_20[,21])
 sum(diag(accuracy))/sum(accuracy)
 #confusionMatrix(factor(pred, levels = 1:928), factor(balanced_test$y, levels = 1:928))
 
@@ -374,17 +373,17 @@ hoslem.test(forward$y, fitted(forward), g=10)
 # Sens/spec for forward model
 
 ```{r }
-logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
-logr.probs<-predict(logr, newdata=balanced_test)
+logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train_bank_20)
+logr.probs<-predict(logr, newdata=test_bank_20)
 ME<-c()
 FP<-c()
 FN<-c()
-index<-0:928/928
-for (i in 1:928){
-logr.pred<-rep("no",928)
+index<-0:32372/32372
+for (i in 1:32372){
+logr.pred<-rep("no",32372)
 logr.pred[logr.probs>index[i]]="yes"
 logr.pred<-factor(logr.pred,levels=c("no","yes"))
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 x<-table(Pred,Truth)
 ME<-(x[1,2]+x[2,1])/sum(x)
@@ -400,14 +399,14 @@ FN
 
 # ROC curve for the forward model
 ```{r }
-dat.train.x <- as.data.frame(balanced_train)
-dat.train.y <- balanced_train$y
+dat.train.x <- as.data.frame(balanced_train_bank_20)
+dat.train.y <- balanced_train_bank_20$y
 dat.train.y <- as.factor(as.character(dat.train.y))
-dat.test.x<-as.data.frame(balanced_test)
-dat.test.y<- balanced_test$y
+dat.test.x<-as.data.frame(test_bank_20)
+dat.test.y<- test_bank_20$y
 dat.test.y <- as.factor(as.character(dat.test.y))
 
-logr1<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
+logr1<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train_bank_20)
 logr.probs1<-predict(logr1, newdata=dat.test.x)
 
 #Compare the prediction to the real outcome
@@ -432,21 +431,21 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.train1[[1]],3), sep = ""))
 
 # Stepwise selection 
 ```{r }
-full.model <- glm(y ~., data = balanced_train, family = binomial)
+full.model <- glm(y ~., data = balanced_train_bank_20, family = binomial)
 coef(full.model)
 step.model <- full.model %>% stepAIC(trace = FALSE)
 coef(step.model)
 # Make predictions
-probabilities <- full.model %>% predict(balanced_test, type = "response")
+probabilities <- full.model %>% predict(test_bank_20, type = "response")
 predicted.classes <- ifelse(probabilities > 0.5, "yes", "no")
 # Prediction accuracy
-observed.classes <- balanced_test$y
+observed.classes <- test_bank_20$y
 mean(predicted.classes == observed.classes)
 # Make predictions
-probabilities <- predict(step.model, balanced_test, type = "response")
+probabilities <- predict(step.model, test_bank_20, type = "response")
 predicted.classes <- ifelse(probabilities > 0.5, "yes", "no")
 # Prediction accuracy
-observed.classes <- balanced_test$y
+observed.classes <- test_bank_20$y
 mean(predicted.classes == observed.classes)
 
 ```
@@ -477,19 +476,19 @@ vif(step.model)
 # Prediction with the stepwise  selection after taking care of the high vif
 
 ```{r }
-logr<- glm(y ~ job + education + default + contact +duration + poutcome + campaign + month, family = binomial(link = "logit"),data = balanced_train)
+logr<- glm(y ~ job + education + default + contact +duration + poutcome + campaign + month + previous, family = binomial(link = "logit"),data = balanced_train_bank_20)
 
 # 1 way
-logr.probs<-predict(logr, newdata=balanced_test)
-logr.pred<-rep("No",928)
+logr.probs<-predict(logr, newdata=test_bank_20)
+logr.pred<-rep("No",32372)
 logr.pred[logr.probs>.5]="Yes"
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 ftable(addmargins(table(Pred,Truth)))
 
 # 2 way
-pred = predict(logr, newdata=balanced_test)
-accuracy <- table(pred, balanced_test[,21])
+pred = predict(logr, newdata=test_bank_20)
+accuracy <- table(pred, test_bank_20[,21])
 sum(diag(accuracy))/sum(accuracy)
 #confusionMatrix(factor(pred, levels = 1:928), factor(balanced_test$y, levels = 1:928))
 
@@ -498,17 +497,17 @@ sum(diag(accuracy))/sum(accuracy)
 # Sens/spec for stepwise model
 
 ```{r }
-logr<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
-logr.probs<-predict(logr, newdata=balanced_test)
+logr<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
+logr.probs<-predict(logr, newdata=test_bank_20)
 ME<-c()
 FP<-c()
 FN<-c()
-index<-0:928/928
-for (i in 1:928){
-logr.pred<-rep("no",928)
+index<-0:32372/32372
+for (i in 1:32372){
+logr.pred<-rep("no",32372)
 logr.pred[logr.probs>index[i]]="yes"
 logr.pred<-factor(logr.pred,levels=c("no","yes"))
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 x<-table(Pred,Truth)
 ME<-(x[1,2]+x[2,1])/sum(x)
@@ -526,14 +525,14 @@ FN
 
 # ROC curve for the stepwise model
 ```{r }
-dat.train.x <- as.data.frame(balanced_train)
-dat.train.y <- balanced_train$y
+dat.train.x <- as.data.frame(balanced_train_bank_20)
+dat.train.y <- balanced_train_bank_20$y
 dat.train.y <- as.factor(as.character(dat.train.y))
-dat.test.x<-as.data.frame(balanced_test)
-dat.test.y<- balanced_test$y
+dat.test.x<-as.data.frame(test_bank_20)
+dat.test.y<- test_bank_20$y
 dat.test.y <- as.factor(as.character(dat.test.y))
 
-logr2<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr2<-glm(y ~ job + education + default + contact +duration + poutcome + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
 logr.probs2<-predict(logr2, newdata=dat.test.x)
 
 #Compare the prediction to the real outcome
@@ -555,7 +554,7 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.train2[[1]],3), sep = ""))
 
 # Backward selection
 ```{r }
-model.null<-glm(y ~ ., data=balanced_train,family = binomial(link="logit"))
+model.null<-glm(y ~ ., data=balanced_train_bank_20,family = binomial(link="logit"))
 step(model.null,
      scope = list(upper=model.main),
      direction="backward",
@@ -568,13 +567,12 @@ step(model.null,
 backward<- glm(formula = y ~ job + education + default + contact + month + 
     duration + campaign + pdays + poutcome + emp.var.rate + cons.price.idx + 
     euribor3m + nr.employed, family = binomial(link = "logit"), 
-    data = balanced_train)
+    data =balanced_train_bank_20 )
 backward
 ```
 
 # VIF and odd ratio for backward selection
 ```{r }
-summary(backward)
 exp(cbind("Odds ratio" = coef(forward), confint.default(backward, level = 0.95)))
 vif(backward)
 ```
@@ -582,7 +580,7 @@ vif(backward)
 # After take of the high vif for backward selection
 
 ```{r }
-backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train)
+backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + pdays + campaign + month, family = binomial(link = "logit"),data = balanced_train)
 backwardfinal
 ```
 # VIF and odd ratio for backward model
@@ -604,19 +602,19 @@ plot(backwardfinal)
 # Prediction with the backward selection
 
 ```{r }
-logr<- glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train)
+logr<- glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
 
 # 1 way
-logr.probs<-predict(logr, newdata=balanced_test)
-logr.pred<-rep("No",928)
+logr.probs<-predict(logr, newdata=test_bank_20)
+logr.pred<-rep("No",32372)
 logr.pred[logr.probs>.5]="Yes"
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 ftable(addmargins(table(Pred,Truth)))
 
 # 2 way
-pred = predict(logr, newdata=balanced_test)
-accuracy <- table(pred, balanced_test[,21])
+pred = predict(logr, newdata=test_bank_20)
+accuracy <- table(pred, test_bank_20[,21])
 sum(diag(accuracy))/sum(accuracy)
 #confusionMatrix(factor(pred, levels = 1:928), factor(balanced_test$y, levels = 1:928))
 
@@ -630,17 +628,17 @@ hoslem.test(backwardfinal$y, fitted(backwardfinal), g=10)
 # Sens/spec for backward model
 
 ```{r }
-logr<-glm(y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train)
-logr.probs<-predict(logr, newdata=balanced_test)
+logr<-glm(y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train_bank_20)
+logr.probs<-predict(logr, newdata=test_bank_20)
 ME<-c()
 FP<-c()
 FN<-c()
-index<-0:928/928
-for (i in 1:928){
-logr.pred<-rep("no",928)
+index<-0:32372/32372
+for (i in 1:32372){
+logr.pred<-rep("no",32372)
 logr.pred[logr.probs>index[i]]="yes"
 logr.pred<-factor(logr.pred,levels=c("no","yes"))
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 x<-table(Pred,Truth)
 ME<-(x[1,2]+x[2,1])/sum(x)
@@ -657,15 +655,15 @@ FN
 
 # ROC curve for the backward model
 ```{r }
-dat.train.x <- as.data.frame(balanced_train)
-dat.train.y <- balanced_train$y
+dat.train.x <- as.data.frame(balanced_train_bank_20)
+dat.train.y <- balanced_train_bank_20$y
 dat.train.y <- as.factor(as.character(dat.train.y))
-dat.test.x<-as.data.frame(balanced_test)
-dat.test.y<- balanced_test$y
+dat.test.x<-as.data.frame(test_bank_20)
+dat.test.y<- test_bank_20$y
 dat.test.y <- as.factor(as.character(dat.test.y))
 
-logr3<- glm(y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train)
-logr.probs3<-predict(logr3, newdata=balanced_test)
+logr3<- glm(y ~ job + education + default + contact +duration + pdays + campaign + poutcome, family = binomial(link = "logit"),data = balanced_train_bank_20)
+logr.probs3<-predict(logr3, newdata=test_bank_20)
 
 #Compare the prediction to the real outcome
 head(logr.probs3)
@@ -687,8 +685,8 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.train3[[1]],3), sep = ""))
 
 # Lasso Feature selection
 ```{r }
-dat.train.x <- model.matrix(y~ .,balanced_train)
-dat.train.y<-balanced_train[,21]
+dat.train.x <- model.matrix(y~ .,balanced_train_bank_20)
+dat.train.y<-balanced_train_bank_20[,21]
 cvfit <- cv.glmnet(dat.train.x, dat.train.y, family = "binomial", type.measure = "class", nlambda = 1000)
 plot(cvfit)
 coef(cvfit, s = "lambda.min")
@@ -703,9 +701,9 @@ cvfit$lambda.min
 # Prediction
 ```{r }
 # Final
-dat.test.y<- balanced_test[,21]
+dat.test.y<- test_bank_20[,21]
 dat.test.y<-ifelse(dat.test.y == "yes", 1,0)
-dat.test.x<- model.matrix(y~ .,balanced_test)
+dat.test.x<- model.matrix(y~ .,test_bank_20)
 finalmodel<-glmnet(dat.train.x, dat.train.y, family = "binomial",lambda=cvfit$lambda.min)
 
 pred <- predict(finalmodel, s = cvfit$lambda.min, newx = dat.test.x)
@@ -732,15 +730,15 @@ rsq
 # Confusion matrix
 ```{r }
 logr.pred<-pred
-logr.pred<-rep("No",928)
+logr.pred<-rep("No", 32372)
 logr.pred[logr.probs>.5]="Yes"
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 ftable(addmargins(table(Pred,Truth)))
 
 # 2 way
-pred = predict(logr, newdata=balanced_test)
-accuracy <- table(pred, balanced_test[,21])
+pred = predict(logr, newdata=test_bank_20)
+accuracy <- table(pred, test_bank_20[,21])
 sum(diag(accuracy))/sum(accuracy)
 ```
 
@@ -748,9 +746,9 @@ sum(diag(accuracy))/sum(accuracy)
 
 ```{r }
 logr.pred<-pred
-logr.pred<-rep("No",928)
+logr.pred<-rep("No",32372)
 logr.pred[logr.probs>.5]="Yes"
-Truth<-balanced_test[,21]
+Truth<-test_bank_20[,21]
 Pred<-logr.pred
 x<- ftable(addmargins(table(Pred,Truth)))
 
@@ -800,7 +798,7 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.train[[1]],3), sep = ""))
 
 
 
-# Compare ROC
+# Compare ROC from differents model
 ```{r }
 plot( roc.perf1, colorize = TRUE)
 plot(roc.perf2, add = TRUE, colorize = TRUE)
