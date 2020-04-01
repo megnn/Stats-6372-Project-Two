@@ -102,8 +102,10 @@ no_train_indices = sample(no_indices, length(yes_indices))
 train_indices = c(no_train_indices,yes_train_indices)
 
 balanced_train_bank_20 = clean_bank_20[train_indices,]
+balanced_train_bank_20<-balanced_train_bank_20
 head(balanced_train_bank_20)
 test_bank_20 = clean_bank_20[-train_indices,]
+test_bank_20<-test_bank_20
 head(test_bank_20)
 
 ```
@@ -229,8 +231,18 @@ p3
 ```
 
 
+# Assessing interaction
 ```{r }
-
+#Interactions on Categorical Variables
+#Job and Marital interaction 
+clean_bank_20 %>% ggplot(aes(x = job, fill = marital))  + geom_bar(position = "fill")
+#Continuous + Categorical
+clean_bank_20 %>% ggplot(aes(x = job, y = nr.employed, fill = y)) + geom_boxplot()
+clean_bank_20 %>% ggplot(aes(x = job, y = cons.conf.idx, fill = y)) + geom_boxplot()
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, fill = y)) + geom_boxplot()
+clean_bank_20 %>% ggplot(aes(x = month, y = log(duration), fill = y)) + geom_boxplot()
+#Continuous + Continous
+clean_bank_20 %>% ggplot(aes(x = euribor3m, y = cons.conf.idx, color = y)) + geom_jitter()
 ```
 
 
@@ -279,18 +291,48 @@ y_train<-balanced_train_bank_20[,21]
 
 X_test <- test_bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)]
 y_test <- test_bank_20[,21]
-mylda<-lda(y ~ age + duration + campaign+pdays + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data= balanced_train)
+mylda<-lda(y ~ age + duration + campaign+pdays + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data= balanced_train_bank_20)
 pred<-predict(mylda,newdata=X_test )$class  
 Truth<-y_test
 x<-table(pred,Truth) # Creating a confusion matrix
 x
 #Missclassification Error
 ME<-(x[2,1]+x[1,2])/114
+FP<-x[2,1]/(x[2,1]+x[1,1])
+FN<-x[1,2]/(x[1,2]+x[2,2])
+TP= 1-FN
+TP
 ME
+FP
+FN
 #Calculating overall accuracy
 oneminusME<-1-ME
 oneminusME
 ```
+
+
+# ROC for the LDA model
+```{r }
+X_train <- balanced_train_bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)]
+y_train<-balanced_train_bank_20[,21]
+y_train <- as.factor(as.character(y_train))
+X_test <- test_bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)]
+y_test <- test_bank_20[,21]
+y_test <- as.factor(as.character(y_test))
+mylda<-lda(y ~ age + duration + campaign+pdays + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data= balanced_train_bank_20)
+pred.lda<-predict(mylda,newdata=X_test )
+predsld <- pred.lda$posterior
+predsld <- as.data.frame(predsld)
+predsld <- prediction(predsld[,1],y_test)
+roc.perfld = performance(predsld, measure = "tpr", x.measure = "fpr")
+auc.trainld <- performance(predsld, measure = "auc")
+auc.trainld <- auc.trainld@y.values
+plot(roc.perfld)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.trainld[[1]],3), sep = ""))
+```
+
+
 
 # Selection of the variable for LLR 
 
@@ -312,7 +354,7 @@ step(model.null,
 forward<- glm(formula = y ~ duration + nr.employed + month + poutcome + 
     emp.var.rate + cons.price.idx + job + euribor3m + contact + 
     day_of_week + pdays + default + previous, family = binomial(link = "logit"), 
-    data = balanced_train)
+    data = balanced_train_bank_20)
 forward
 ```
 
@@ -325,7 +367,7 @@ vif(forward)
 
 # Take off the high VIF variances 
 ```{r }
-forward2<- glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train)
+forward2<- glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data = balanced_train_bank_20)
 forward2
 ```
 
@@ -346,7 +388,7 @@ summary(forward2)
 # Prediction with the forward selection
 
 ```{r }
-logr<-glm(formula = y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data =  balanced_train_bank_20)
+logr<-glm(y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data =  balanced_train_bank_20)
 
 # 1 way
 logr.probs<-predict(logr, newdata=test_bank_20)
@@ -580,7 +622,7 @@ vif(backward)
 # After take of the high vif for backward selection
 
 ```{r }
-backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + pdays + campaign + month, family = binomial(link = "logit"),data = balanced_train)
+backwardfinal<- glm(formula = y ~ job + education + default + contact +duration + pdays + campaign + month, family = binomial(link = "logit"),data = balanced_bank_20)
 backwardfinal
 ```
 # VIF and odd ratio for backward model
