@@ -127,7 +127,7 @@ Truth<-y_test
 x<-table(pred,Truth) # Creating a confusion matrix
 x
 #Missclassification Error
-ME<-(x[2,1]+x[1,2])/114
+ME<-(x[2,1]+x[1,2])/sum(x)
 FP<-x[2,1]/(x[2,1]+x[1,1])
 FN<-x[1,2]/(x[1,2]+x[2,2])
 ses<-x[2,2]/(x[2,2]+x[1,2])
@@ -160,7 +160,7 @@ mylda<-lda(y ~ age + duration + campaign+pdays + previous + emp.var.rate + cons.
 pred.lda<-predict(mylda,newdata=X_test )
 predsld <- pred.lda$posterior
 predsld <- as.data.frame(predsld)
-predsld <- prediction(predsld[,1],y_test)
+predsld <- prediction(predsld[,2],y_test)
 roc.perfld = performance(predsld, measure = "tpr", x.measure = "fpr")
 auc.trainld <- performance(predsld, measure = "auc")
 auc.trainld <- auc.trainld@y.values
@@ -592,17 +592,25 @@ lassoc
 # Objective 2
 
 ```{r }
-compx<-logr<- glm(y ~ job + default + contact + month + duration + campaign + pdays +poutcome +  job*default + contact*duration + pdays*contact + pdays*duration, family = binomial(link = "logit"),data = balanced_train_bank_20)
+alt_pdays_cat_train = ifelse(balanced_train_bank_20$pdays == 999, 0, 1)
+alt_clean_bank_20<- balanced_train_bank_20
+alt_clean_bank_20$pdays_cat = alt_pdays_cat_train
+
+alt_pdays_cat_test = ifelse(test_bank_20$pdays == 999, 0, 1) 
+alt_clean_bank_20_test<- test_bank_20
+alt_clean_bank_20_test$pdays_cat = alt_pdays_cat_test
+
+compx<-logr<- glm(y ~ job + default + contact + month + duration + campaign + pdays_cat +poutcome +  job*default + contact*duration + pdays_cat*contact + pdays*duration, family = binomial(link = "logit"),data = alt_clean_bank_20)
 
 ```
 
 
 # prediction for complex model
 ```{r }
-compx<- glm(y ~ job + default + contact + month + duration + campaign + pdays +poutcome +  job*default + contact*duration + pdays*contact + pdays*duration, family = binomial(link = "logit"),data = balanced_train_bank_20)
+compx<- glm(y ~ job + default + contact + month + duration + campaign + pdays_cat +poutcome +  job*default + contact*duration + pdays_cat*contact + pdays*duration, family = binomial(link = "logit"),data = alt_clean_bank_20)
 
 # 1 way
-logr.probs<-predict(compx, newdata=test_bank_20)
+logr.probs<-predict(compx, newdata=alt_clean_bank_20_test)
 logr.pred<-rep("No",32372)
 logr.pred[logr.probs>.5]="Yes"
 Truth<-test_bank_20[,21]
