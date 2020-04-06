@@ -672,3 +672,21 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.trainc[[1]],3), sep = ""))
 ```
 
 
+# Compare ROC for competing model model
+```{r }
+plot( roc.perfc, colorize = TRUE)
+plot(roc.perf2, add = TRUE, colorize = TRUE)
+plot(roc.perfld, add = TRUE, colorize = TRUE)
+abline(a=0, b= 1)
+
+#without color for cutoff; but adding colors to allow for comarisons of the curves
+plot( roc.perfc, col="black", add = TRUE)
+plot(roc.perf2,col="orange", add = TRUE)
+plot(roc.perfld,col="blue", add = TRUE)
+legend("bottomright",legend=c("Complicated","Stepwise","LDA")
+       ,col=c("orange","blue","yellow"),lty=1,lwd=1)
+abline(a=0, b= 1)
+```
+
+
+
