@@ -47,6 +47,8 @@ library(repr)
 library(ResourceSelection)
 library(ROCR)
 library(pROC)
+library(tree)
+library(randomForest)
 ```
 
 # Loading the data
@@ -121,7 +123,7 @@ y_train<-balanced_train_bank_20[,21]
 
 X_test <- test_bank_20[,-c(2,3,4,5,6,7,8,9,10,15,21)]
 y_test <- test_bank_20[,21]
-mylda<-lda(y ~ age + duration + campaign+pdays + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data= balanced_train_bank_20)
+mylda<-lda(y ~ age + duration + campaign+ pdays + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data= balanced_train_bank_20)
 pred<-predict(mylda,newdata=X_test )$class  
 Truth<-y_test
 x<-table(pred,Truth) # Creating a confusion matrix
@@ -223,7 +225,7 @@ sp
 
 # Holmes test for forward selecttion
 ```{r }
-hoslem.test(forward$y, fitted(forward), g=10)
+hoslem.test(logr$y, fitted(logr), g=10)
 
 ```
 
@@ -672,21 +674,77 @@ text(x = .40, y = .6,paste("AUC = ", round(auc.trainc[[1]],3), sep = ""))
 ```
 
 
-# Compare ROC for competing model model
+
+# Random forest
+```{r }
+#Lets take a look at the predicted surface of our bagged model
+bag.full<-randomForest( y ~ job + default + contact + month + duration + campaign + pdays + poutcome + age + marital + education + housing + loan + day_of_week + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed,data=balanced_train_bank_20, mtry=10,importance =TRUE,ntree=250)
+
+pred.surface<-matrix(predict(bag.full,test_bank_20))
+table(pred.surface,test_bank_20$y)
+x<-table(pred.surface,test_bank_20$y)
+ME<-(x[1,2]+x[2,1])/sum(x)
+FP<-x[2,1]/(x[2,1]+x[1,1])
+FN<-x[1,2]/(x[1,2]+x[2,2])
+ses<-x[2,2]/(x[2,2]+x[1,2])
+sp<-x[1,1]/(x[1,1]+x[2,1])
+accuracy <- x
+AC<- sum(diag(accuracy))/sum(accuracy)
+TP= 1-FN
+AC
+TP
+ME
+FP
+FN
+ses
+sp
+```
+
+# ROC for randon forest
+```{r }
+dat.train.x <- as.data.frame(balanced_train_bank_20)
+dat.train.y <- balanced_train_bank_20$y
+dat.train.y <- as.factor(as.character(dat.train.y))
+dat.test.x<-as.data.frame(test_bank_20)
+dat.test.y<- test_bank_20$y
+dat.test.y <- as.factor(as.character(dat.test.y))
+
+bag.full<-randomForest(y ~ job + default + contact + month + duration + campaign + pdays + poutcome + age + marital + education + housing + loan + day_of_week + previous + emp.var.rate + cons.price.idx + cons.conf.idx + euribor3m + nr.employed, data=balanced_train_bank_20, mtry=10,importance =TRUE,ntree=250)
+
+logr.probrf<-predict(bag.full, newdata=dat.test.x,type="prob")
+
+
+#Create ROC curves
+predrf <- prediction(logr.probrf[,2],dat.test.y)
+roc.perfrf = performance(predrf, measure = "tpr", x.measure = "fpr")
+auc.trainrf <- performance(predrf, measure = "auc")
+auc.trainrf <- auc.trainrf@y.values
+
+#Plot ROC
+plot(roc.perfrf)
+abline(a=0, b= 1)
+text(x = .40, y = .6,paste("AUC = ", round(auc.trainrf[[1]],3), sep = ""))
+
+```
+
+
+# Compare ROC for the objective 2, competing models
+
 ```{r }
 plot( roc.perfc, colorize = TRUE)
 plot(roc.perf2, add = TRUE, colorize = TRUE)
 plot(roc.perfld, add = TRUE, colorize = TRUE)
+plot(roc.perfrf, add = TRUE, colorize = TRUE)
 abline(a=0, b= 1)
 
 #without color for cutoff; but adding colors to allow for comarisons of the curves
-plot( roc.perfc, col="black", add = TRUE)
-plot(roc.perf2,col="orange", add = TRUE)
-plot(roc.perfld,col="blue", add = TRUE)
-legend("bottomright",legend=c("Complicated","Stepwise","LDA")
-       ,col=c("orange","blue","yellow"),lty=1,lwd=1)
+plot( roc.perfc, col="orange", add = TRUE)
+plot(roc.perf2,col="blue", add = TRUE)
+plot(roc.perfld,col="yellow", add = TRUE)
+plot(roc.perfrf,col="black", add = TRUE)
+legend("bottomright",legend=c("Complicated","Stepwise","LDA", "Random Forest")
+       ,col=c("orange","blue","yellow", "black"),lty=1,lwd=1)
 abline(a=0, b= 1)
 ```
-
 
 
