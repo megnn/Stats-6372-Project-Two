@@ -39,7 +39,7 @@ Variable Notes:
 -Do not understand some of the later variables, seem to be more socially based. 
 
 
-```{r}
+```{r summary} 
 #Dr Turner is heavily requesting summary stats
 summary(bank_20)
 
@@ -58,7 +58,7 @@ sapply(bank_17, function(x) sum(is.na(x)))
 Pdays is a major variable that needs correcting, the large inclusion of the 999 category requires either splitting the variable or turning it into a categorical with bins. The first option will be used to create one boolean variable that indicates whether a customer has been contacted before(where the 999 code indicates they have not been) and another variable with 
 
 
-```{r}
+```{r cleaning}
 
 clean_bank_20 = as.data.frame(bank_20)
 #pdays- about 40k of the 41k are at level 999, no previous contact 
@@ -78,7 +78,7 @@ clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
                      bank_20$pdays >= 5 & bank_20$pdays < 10 ~ "Within 10 Days",
                      bank_20$pdays < 5 ~ "Within 5 Days") 
 
-clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
+#clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
 
 
 #Dr Turner's other suggestion 
@@ -97,7 +97,7 @@ alt_clean_bank_20$pdays_cat = alt_pdays_cat
 ## EDA Plots of Specific Variables by Y Response
 
 
-```{r}
+```{r EDA}
 
 #Age 
 clean_bank_20 %>% ggplot(aes(y= age,fill = y)) + geom_boxplot() + ggtitle("Distribution of Age by Status of Response")
@@ -218,29 +218,64 @@ clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, fill = y)) + geom_histogram(stat
 We need to check our multicolinearity between predictor variables as well as interactions, for example, month information of a cyclical nature may be reflected in some of the economic indicators or dependent on them. 
 
 
-```{r}
+```{r interactions}
 
 #Multicoliniearity in the continuous variables. 
 cont_bank = clean_bank_20[,c(1,11,12,13,15,16,17,18,19)]
 ggcorr(cont_bank, label = TRUE, hjust = 1  )
 
-#Interactions on Categorical Variables
+###
+#Interactions on Categorical + Categorical  Variables
 
-#Job and Marital interaction 
+#Job and Marital interaction  - Potentially Useful
 clean_bank_20 %>% ggplot(aes(x = job, fill = marital))  + geom_bar(position = "fill")
 
+#Job and DEfault - Worth keeping, some interaction
+clean_bank_20 %>% ggplot(aes(x = job, fill = default))  + geom_bar(position = "fill")
+
+#Pdays sole categorical var and contact,   A little interaction, 
+clean_bank_20 %>% ggplot(aes(x = newpdays, fill = contact))  + geom_bar(position = "fill")
+ 
+#education and job - Complex visually due to categories, but some interaction present for sure
+clean_bank_20 %>% ggplot(aes(x = education, fill = job))  + geom_bar(position = "fill")
+
+#
+
+
+###
 #Continuous + Categorical
+#Job and nr. employed - Trend is confusing, but potentially some interaction
+#Type of job related to employment in country? 
 clean_bank_20 %>% ggplot(aes(x = job, y = nr.employed, fill = y)) + geom_boxplot()
 
+#Cons confidence and job - not quite significant
 clean_bank_20 %>% ggplot(aes(x = job, y = cons.conf.idx, fill = y)) + geom_boxplot()
 
+#Month with cons conf and duration, month seems useful, but interactions are confusing, seem odd. 
 clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, fill = y)) + geom_boxplot()
-
 clean_bank_20 %>% ggplot(aes(x = month, y = log(duration), fill = y)) + geom_boxplot()
 
+#Original Pdays and contact - VV Hard to truly see interaction here dunno how to turn on/off for plot only quickly 
+#Lets limit pdays interactions then..
+clean_bank_20 %>% ggplot(aes(x = contact, y = pdays, fill = y)) + geom_boxplot()
+
+
+
+#Contact Type and Duration - I Don't think this is significant
+clean_bank_20 %>% ggplot(aes(x = contact, y = log(duration), fill = y)) + geom_boxplot()
+
+
+
+###
 #Continuous + Continous
 
-clean_bank_20 %>% ggplot(aes(x = euribor3m, y = cons.conf.idx, color = y)) + geom_jitter()
+#Use the ggcorr plot from before...
+#Emp. var rate, cons price index,  and euribor3m are multicolinear - include 1 or none
+
+
+
+
+#job*default + contact*duration + pdays*contact + pdays*duratio
 
 ```
 
@@ -252,7 +287,7 @@ Basically if we know there is a strong relationship between duration and the res
 - Is this valid? Possibly? 
 - Is it helpful? Maybe? 
 
-```{r}
+```{r }
 
 duration_model = lm(duration ~ ., data = bank_20)
 
@@ -265,9 +300,10 @@ Yes happens about 10% of the time, where no is the response 90% of the time. Thi
 
 
 
-```{r}
+```{r splitData}
 #Currently produces a train set of 52 n / 48 y
 #90/10 yes train test split
+set.seed(4567)
 
 yes_indices = which(clean_bank_20$y == "yes")
 yes_train_indices = sample(yes_indices, length(yes_indices) * .9)
@@ -279,6 +315,7 @@ train_indices = c(no_train_indices,yes_train_indices)
 balanced_train_bank_20 = clean_bank_20[train_indices,]
 
 test_bank_20 = clean_bank_20[-train_indices,]
+summary(balanced_train_bank_20$default)
 
 ```
 
