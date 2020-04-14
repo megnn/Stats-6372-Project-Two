@@ -32,6 +32,7 @@ library(repr)
 library(ResourceSelection)
 library(ROCR)
 library(pROC)
+library(FNN)
 
 #install.packages('limma')
 
@@ -217,16 +218,98 @@ abline(h=0,lty=2,col="grey")
 plot(cooks.distance(model))
 #plot(cooks.distance(step.model, infl = lm.influence(step.model, do.coef = FALSE), res = weighted.residuals(step.model), sd = sqrt(deviance(step.model)/df.residual(step.model))))
 
+
+########################New Fabio Model##############################################################
+model <- glm(y ~ job + education + marital + housing + contact + default + month + day_of_week + duration + campaign + pdays + poutcome + emp.var.rate + cons.conf.idx + cons.price.idx + nr.employed, family = binomial(link = "logit"),data = balanced_train_bank_20)
+logr.probs<-predict(model, newdata=test_bank_20)
+
+logr.probs<- ifelse(logr.probs > 0.5, 'yes','no')
+logr.probs <- as.factor(logr.probs)
+
+table(test_bank_20$y,logr.probs)
+cfm = confusionMatrix(logr.probs,test_bank_20$y)
+cfm
+###############################Complex Logistic ###################################
+alt_pdays_cat_train = ifelse(balanced_train_bank_20$pdays == 999, 0, 1)
+alt_clean_bank_20<- balanced_train_bank_20
+alt_clean_bank_20$pdays_cat = alt_pdays_cat_train
+
+alt_pdays_cat_test = ifelse(test_bank_20$pdays == 999, 0, 1) 
+alt_clean_bank_20_test<- test_bank_20
+alt_clean_bank_20_test$pdays_cat = alt_pdays_cat_test
+
+model <- glm(y ~ job + default + contact + month + duration + campaign + pdays_cat +poutcome +  job*default + contact*duration + pdays_cat*contact + pdays*duration, family = binomial(link = "logit"),data = alt_clean_bank_20)
+
+logr.probs<-predict(model, newdata=alt_clean_bank_20_test)
+
+logr.probs<- ifelse(logr.probs > 0.5, 'yes','no')
+logr.probs <- as.factor(logr.probs)
+
+table(alt_clean_bank_20_test$y,logr.probs)
+cfm = confusionMatrix(logr.probs,test_bank_20$y)
+cfm$byClass[1]
+
 ############# Compare with KNN ########################
-library(class)
-balancetrainNew <- balanced_train_bank_20 %>% dplyr::select('job', 'default', 'contact', 'duration', 'month', 'poutcome', 'campaign','y')
-testNew <- test_bank_20 %>% dplyr::select('job', 'default', 'contact', 'duration', 'month', 'poutcome', 'campaign','y')
-classifications = knn(balanced_train_bank_20[,c('job', 'default', 'contact', 'duration', 'month', 'poutcome', 'campaign')],test_bank_20[,c('job', 'default', 'contact', 'duration', 'month', 'poutcome', 'campaign')],as.factor(balanced_train_bank_20$y), prob = TRUE, k = 5)
+#library(class)
+
+splitPerc = .8
+iterations = 50
+numks = 50
+masterAcc = matrix(nrow = iterations, ncol = numks)
+masterSens = matrix(nrow = iterations, ncol = numks)
+
+clean_bank_20$contactE = ifelse(clean_bank_20$contact == 'cellular' , 1, 0)
+clean_bank_20$pdaysE = ifelse(clean_bank_20$pdays == 999, 0, 1)
+
+
+for(j in 1:iterations) {
+  set.seed(Sys.time())
+  #accs = data.frame(accuracy = numeric(numks), k = numeric(numks))
+  #sens = data.frame(sensitivity = numeric(numks), k = numeric(numks))
+  trainIndices = sample(1:dim(clean_bank_20)[1],round(splitPerc * dim(clean_bank_20)[1]))
+  train = clean_bank_20[trainIndices,]
+  test = clean_bank_20[-trainIndices,]
+  for(i in 1:numks) {
+    classifications = knn(train[,c('age', 'duration', 'emp.var.rate', 'campaign','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','contactE','pdaysE')],test[,c('age', 'duration', 'emp.var.rate', 'campaign','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','contactE','pdaysE')],as.factor(train$y), prob = TRUE, k = i)
+    #table(as.factor(test$Attrition),classifications)
+    CM = confusionMatrix(classifications,test$y)
+    masterAcc[j,i] = CM$overall[1]
+    masterSens[j,i] = CM$byClass[1]
+  }
+}
+
+system(Sys.time(), intern = TRUE)
+
+MeanAcc = colMeans(masterAcc)
+MeanSens = colMeans(masterSens)
+
+#plot(seq(1,numks,1),MeanAcc, type = "l")
+#plot(seq(1,numks,1),MeanSens, type = "l")
+
+kACC = which.max(MeanAcc)
+kSens = which.max(MeanSens)
+
+set.seed(1234)
+yes_indices = which(clean_bank_20$y == "yes")
+yes_train_indices = sample(yes_indices, length(yes_indices) * .9)
+no_indices = which(clean_bank_20$y == "no")
+no_train_indices = sample(no_indices, length(yes_indices))
+train_indices = c(no_train_indices,yes_train_indices)
+
+balanced_train_bank_20 = clean_bank_20[train_indices,]
+balanced_train_bank_20<-balanced_train_bank_20
+summary(balanced_train_bank_20)
+test_bank_20 = clean_bank_20[-train_indices,]
+test_bank_20<-test_bank_20
+
+balancetrainNew <- balanced_train_bank_20 %>% dplyr::select('age', 'duration', 'emp.var.rate', 'campaign','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','contactE','pdaysE','y')
+testNew <- test_bank_20 %>% dplyr::select('age', 'duration', 'emp.var.rate', 'campaign','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','contactE','pdaysE','y')
+classifications = knn(balanced_train_bank_20[,c('age', 'duration', 'emp.var.rate', 'campaign','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','contactE','pdaysE')],test_bank_20[,c('age', 'duration', 'emp.var.rate', 'campaign','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','contactE','pdaysE')],as.factor(balanced_train_bank_20$y), prob = TRUE, k = kSens)
 table(test_bank_20$y,classifications)
 cfm = confusionMatrix(classifications,test_bank_20$y)
 cfm
 
-################ Compare with SVM ###############
+################ Compare with SVM with KNN predictors###############
 library(e1071)
 model <- svm(y~.,data = balancetrainNew)
 predict = predict(model, testNew)
@@ -235,7 +318,26 @@ predict = predict(model, testNew)
 cfm = confusionMatrix(predict,testNew$y)
 cfm
 
-################### Compare with Naive Bayes ############
+################### Compare with Naive Bayes with KNN predictors############
+model <- naiveBayes(y~.,data = balancetrainNew)
+predict = predict(model, testNew)
+
+#Confusion Matrix
+cfm = confusionMatrix(predict,testNew$y)
+cfm
+
+
+################ Compare with SVM with logistic complex predictors###############
+balancetrainNew <- balanced_train_bank_20 %>% dplyr::select('job', 'education' , 'marital' , 'housing' , 'contact' , 'default' ,'month' , 'day_of_week' , 'duration' , 'campaign' , 'pdays' , 'poutcome' , 'emp.var.rate' , 'cons.conf.idx' , 'cons.price.idx' , 'nr.employed','y')
+testNew <- test_bank_20 %>% dplyr::select('job', 'education' , 'marital' , 'housing' , 'contact' , 'default' ,'month' , 'day_of_week' , 'duration' , 'campaign' , 'pdays' , 'poutcome' , 'emp.var.rate' , 'cons.conf.idx' , 'cons.price.idx' , 'nr.employed','y')
+
+model <- svm(y~.,data = balancetrainNew)
+predict = predict(model, testNew)
+
+#Confusion Matrix
+cfm = confusionMatrix(predict,testNew$y)
+cfm
+################### Compare with Naive Bayes with Logistic Predictors############
 model <- naiveBayes(y~.,data = balancetrainNew)
 predict = predict(model, testNew)
 
