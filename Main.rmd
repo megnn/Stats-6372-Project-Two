@@ -1,0 +1,304 @@
+---
+title: "Main"
+author: "Megan Riley"
+output: pdf_document
+---
+
+```{r Setup}
+
+library(readr)
+library(tidyverse)
+library(MASS)
+library(ggplot2)
+library(dplyr)
+library(here)
+library(GGally)
+library(ResourceSelection)
+library(car)
+library(caret)
+
+root = here()
+
+
+bank_20 = read.csv(paste(root,"/data/bank-additional/bank-additional-full.csv", sep = ""), sep=";")
+
+bank_17 = read.csv(paste(root,"/data/bank/bank-full.csv", sep = ""), sep = ";")
+
+
+```
+
+
+```{r summary} 
+
+summary(bank_20)
+
+#Does not look like any NAs in either data set
+sapply(bank_20, function(x) sum(is.na(x)))
+
+
+
+```
+
+
+
+
+```{r cleaning}
+
+clean_bank_20 = as.data.frame(bank_20)
+#pdays- about 40k of the 41k are at level 999, no previous contact 
+#could bin this data 
+hist(bank_20$pdays)
+
+temp = bank_20 %>% filter(pdays != 999)
+dim(temp)
+hist(temp$pdays)
+summary(temp$pdays)
+
+#within 5 days, 10 , 15, 30 and never
+
+clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
+                     bank_20$pdays >= 15 ~ "Within 30 Days", 
+                     bank_20$pdays >= 10 & bank_20$pdays < 15 ~ "Within 15 Days",
+                     bank_20$pdays >= 5 & bank_20$pdays < 10 ~ "Within 10 Days",
+                     bank_20$pdays < 5 ~ "Within 5 Days") 
+
+#clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
+
+
+#Dr Turner's other suggestion 
+#Set up a categorical variable to turn the continuous variable on or off. 
+#any use of this would have to be both in tandem
+#ie y ~ altpdays_cat*altpdays_cont
+alt_pdays_cat = ifelse(bank_20$pdays == 999, 0, 1)
+#remains the same as original pdays, 
+
+alt_clean_bank_20 = bank_20
+alt_clean_bank_20$pdays_cat = alt_pdays_cat
+
+
+```
+
+
+
+
+
+```{r EDA}
+
+#Age 
+clean_bank_20 %>% ggplot(aes(y= age,fill = y)) + geom_boxplot() + ggtitle("Distribution of Age by Status of Response")
+
+#Job
+clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_bar(position = "fill")
+
+
+#Marital
+clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_bar(position = "fill")
+
+
+
+#Education
+clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_bar(position = "fill")
+
+#Default
+clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_bar(position = "fill")
+
+
+#Housing
+clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_bar(position = "fill")
+
+
+#Loan
+
+clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_bar(position = "fill")
+
+#Contact
+clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_bar(position = "fill")
+
+
+#Month
+clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_bar(position = "fill")
+
+
+#Day_of_week
+clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_bar(position = "fill")
+
+
+#duration
+
+clean_bank_20 %>% ggplot(aes(y = duration, fill = y)) + geom_boxplot() + ggtitle("Duration by Status of Response")
+
+clean_bank_20 %>% ggplot(aes(y = log(duration), fill = y)) + geom_boxplot() + ggtitle("Logged Duration by Status of Response")
+
+#Campaign
+
+
+
+#newPdays
+
+clean_bank_20 %>% ggplot(aes(x =newpdays, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = newpdays, fill = y)) + geom_bar(position = "fill")
+
+
+#Previous
+
+
+
+#poutcome
+clean_bank_20 %>% ggplot(aes(x =poutcome, fill = y)) + geom_histogram(stat = "count")
+clean_bank_20 %>% ggplot(aes(x = poutcome, fill = y)) + geom_bar(position = "fill")
+
+
+#emp.var.rate
+clean_bank_20 %>% ggplot(aes(y = emp.var.rate, fill = y)) + geom_boxplot() + ggtitle("emp.var.rate by Status of Response")
+boxplot(clean_bank_20$emp.var.rate)
+
+
+#cons.price.idx
+clean_bank_20 %>% ggplot(aes(y = cons.price.idx, fill = y)) + geom_boxplot() + ggtitle("CPI by Status of Response")
+
+#something here potentially, but is messy
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.price.idx, fill = y)) + geom_boxplot() + ggtitle("CPI by month  by Status of Response")
+
+
+#CCI and CPI
+
+clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, y = cons.price.idx, color = y)) + geom_jitter() + ggtitle("CPI by month  by Status of Response")
+
+
+#cons.conf.idx
+clean_bank_20 %>% ggplot(aes(y = cons.conf.idx, fill = y)) + geom_boxplot() + ggtitle("CCI by Status of Response")
+
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, color = y)) + geom_point() + ggtitle("CCI by month  by Status of Response")
+
+
+clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, fill = y)) + geom_histogram(stat = "count") + ggtitle("CCI by Status of Response")
+
+
+
+
+#euribor3m
+
+#nr.employed
+
+
+#working with the ftables
+
+#probs needs to be a factor
+#ftable(addmargins(clean_bank_20$y, clean_bank_20$month))
+
+```
+
+
+## Multicolinearity and Interactions
+
+
+
+```{r interactions}
+
+#Multicoliniearity in the continuous variables. 
+cont_bank = clean_bank_20[,c(1,11,12,13,15,16,17,18,19)]
+ggcorr(cont_bank, label = TRUE, hjust = 1  )
+
+###
+#Interactions on Categorical + Categorical  Variables
+
+#Job and Marital interaction  - Potentially Useful
+clean_bank_20 %>% ggplot(aes(x = job, fill = marital))  + geom_bar(position = "fill")
+
+#Job and DEfault - Worth keeping, some interaction
+clean_bank_20 %>% ggplot(aes(x = job, fill = default))  + geom_bar(position = "fill")
+
+#Pdays sole categorical var and contact,   A little interaction, 
+clean_bank_20 %>% ggplot(aes(x = newpdays, fill = contact))  + geom_bar(position = "fill")
+ 
+#education and job - Complex visually due to categories, but some interaction present for sure
+clean_bank_20 %>% ggplot(aes(x = education, fill = job))  + geom_bar(position = "fill")
+
+#
+
+
+###
+#Continuous + Categorical
+#Job and nr. employed - Trend is confusing, but potentially some interaction
+#Type of job related to employment in country? 
+clean_bank_20 %>% ggplot(aes(x = job, y = nr.employed, fill = y)) + geom_boxplot()
+
+#Cons confidence and job - not quite significant
+clean_bank_20 %>% ggplot(aes(x = job, y = cons.conf.idx, fill = y)) + geom_boxplot()
+
+#Month with cons conf and duration, month seems useful, but interactions are confusing, seem odd. 
+clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, fill = y)) + geom_boxplot()
+clean_bank_20 %>% ggplot(aes(x = month, y = log(duration), fill = y)) + geom_boxplot()
+
+#Original Pdays and contact - VV Hard to truly see interaction here dunno how to turn on/off for plot only quickly 
+#Lets limit pdays interactions then..
+clean_bank_20 %>% ggplot(aes(x = contact, y = pdays, fill = y)) + geom_boxplot()
+
+
+
+#Contact Type and Duration - I Don't think this is significant
+clean_bank_20 %>% ggplot(aes(x = contact, y = log(duration), fill = y)) + geom_boxplot()
+
+
+
+###
+#Continuous + Continous
+
+#Use the ggcorr plot from before...
+#Emp. var rate, cons price index,  and euribor3m are multicolinear - include 1 or none
+
+
+
+
+#job*default + contact*duration + pdays*contact + pdays*duratio
+
+```
+
+
+###OBJECTIVE ONE
+
+```{r var_selection}
+
+###Forward Selection Model Creation
+
+#Forward selected model returns this set of variables
+logr_Forward <-glm(y ~ duration + job + contact + day_of_week + default + previous+ pdays, family = binomial(link = "logit"), data =  balanced_train_bank_20)
+
+
+
+###Backward Selection Model Creation
+logr<- glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
+
+
+
+###Stepwise Selection Model Creation
+logr_Stepwise <- glm(y ~ job + default + contact + month + duration + campaign + pdays +poutcome, family = binomial(link = "logit"),data = balanced_train_bank_20)
+
+
+
+```
+
+
+```{r obj1_model}
+
+###Table of accuracies, etc 
+
+
+###ROC Curve Building 
+
+
+
+###ROC Curve Printing
+
+```
+
+
