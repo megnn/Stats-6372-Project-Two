@@ -16,6 +16,7 @@ library(GGally)
 library(ResourceSelection)
 library(car)
 library(caret)
+library(glmnet)
 
 root = here()
 
@@ -79,6 +80,24 @@ alt_clean_bank_20$pdays_cat = alt_pdays_cat
 ```
 
 
+```{r splitData}
+#Currently produces a train set of 52 n / 48 y
+#90/10 yes train test split
+set.seed(4567)
+
+yes_indices = which(clean_bank_20$y == "yes")
+yes_train_indices = sample(yes_indices, length(yes_indices) * .9)
+no_indices = which(clean_bank_20$y == "no")
+#
+no_train_indices = sample(no_indices, length(yes_indices))
+train_indices = c(no_train_indices,yes_train_indices)
+
+balanced_train_bank_20 = clean_bank_20[train_indices,]
+
+test_bank_20 = clean_bank_20[-train_indices,]
+summary(balanced_train_bank_20$default)
+
+```
 
 
 
@@ -88,73 +107,60 @@ alt_clean_bank_20$pdays_cat = alt_pdays_cat
 clean_bank_20 %>% ggplot(aes(y= age,fill = y)) + geom_boxplot() + ggtitle("Distribution of Age by Status of Response")
 
 #Job
-clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = job, fill = y)) + geom_bar(position = "fill") + ggtitle("Job by Response")
 
 
 #Marital
-clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_bar(position = "fill")
-
+clean_bank_20 %>% ggplot(aes(x = marital, fill = y)) + geom_bar(position = "fill") + ggtitle("Marital Status by Response")
 
 
 #Education
-clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = education, fill = y)) + geom_bar(position = "fill")  + ggtitle("Education by Response")
 
 #Default
-clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = default, fill = y)) + geom_bar(position = "fill")  + ggtitle("Default Status by Response")
 
 
 #Housing
-clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = housing, fill = y)) + geom_bar(position = "fill") + ggtitle("Housing by Response")
 
 
 #Loan
-
-clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = loan, fill = y)) + geom_bar(position = "fill") + ggtitle("Loan Status by Response")
 
 #Contact
-clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = contact, fill = y)) + geom_bar(position = "fill") + ggtitle("Contact by Response")
 
 
 #Month
-clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = month, fill = y)) + geom_bar(position = "fill")+ ggtitle("Month by Response")
 
 
 #Day_of_week
-clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = day_of_week, fill = y)) + geom_bar(position = "fill") + ggtitle("Day of the Week by Response")
 
 
 #duration
-
 clean_bank_20 %>% ggplot(aes(y = duration, fill = y)) + geom_boxplot() + ggtitle("Duration by Status of Response")
 
 clean_bank_20 %>% ggplot(aes(y = log(duration), fill = y)) + geom_boxplot() + ggtitle("Logged Duration by Status of Response")
 
 #Campaign
 
+clean_bank_20 %>% ggplot(aes(x = campaign, fill = y)) + geom_bar(position = "fill") + ggtitle("Campaign by Status of Response")
 
 
 #newPdays
-
-clean_bank_20 %>% ggplot(aes(x =newpdays, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = newpdays, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = newpdays, fill = y)) + geom_bar(position = "fill") + ggtitle("Categorical P Days by Status of Response")
 
 
 #Previous
+clean_bank_20 %>% ggplot(aes(x = previous, fill = y)) + geom_bar(position = "fill") + ggtitle("Previous Attempts by Status of Response")
 
 
 
 #poutcome
-clean_bank_20 %>% ggplot(aes(x =poutcome, fill = y)) + geom_histogram(stat = "count")
-clean_bank_20 %>% ggplot(aes(x = poutcome, fill = y)) + geom_bar(position = "fill")
+clean_bank_20 %>% ggplot(aes(x = poutcome, fill = y)) + geom_bar(position = "fill")+ ggtitle("Poutcome by Status of Response")
 
 
 #emp.var.rate
@@ -165,35 +171,12 @@ boxplot(clean_bank_20$emp.var.rate)
 #cons.price.idx
 clean_bank_20 %>% ggplot(aes(y = cons.price.idx, fill = y)) + geom_boxplot() + ggtitle("CPI by Status of Response")
 
-#something here potentially, but is messy
-clean_bank_20 %>% ggplot(aes(x = month, y = cons.price.idx, fill = y)) + geom_boxplot() + ggtitle("CPI by month  by Status of Response")
-
-
-#CCI and CPI
-
-clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, y = cons.price.idx, color = y)) + geom_jitter() + ggtitle("CPI by month  by Status of Response")
-
-
-#cons.conf.idx
+#con.conf.idx
 clean_bank_20 %>% ggplot(aes(y = cons.conf.idx, fill = y)) + geom_boxplot() + ggtitle("CCI by Status of Response")
 
-clean_bank_20 %>% ggplot(aes(x = month, y = cons.conf.idx, color = y)) + geom_point() + ggtitle("CCI by month  by Status of Response")
+#nr Employed
+clean_bank_20 %>% ggplot(aes(y = nr.employed, fill = y)) + geom_boxplot() + ggtitle("Employment in Millions by Status of Response")
 
-
-clean_bank_20 %>% ggplot(aes(x = cons.conf.idx, fill = y)) + geom_histogram(stat = "count") + ggtitle("CCI by Status of Response")
-
-
-
-
-#euribor3m
-
-#nr.employed
-
-
-#working with the ftables
-
-#probs needs to be a factor
-#ftable(addmargins(clean_bank_20$y, clean_bank_20$month))
 
 ```
 
@@ -276,12 +259,31 @@ logr_Forward <-glm(y ~ duration + job + contact + day_of_week + default + previo
 
 
 ###Backward Selection Model Creation
-logr<- glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
+logr_Backward<- glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
 
 
 
 ###Stepwise Selection Model Creation
 logr_Stepwise <- glm(y ~ job + default + contact + month + duration + campaign + pdays +poutcome, family = binomial(link = "logit"),data = balanced_train_bank_20)
+
+
+###Lasso Model Creation
+dat.train.x <- model.matrix(y~ .,balanced_train_bank_20)
+dat.train.y<-balanced_train_bank_20[,21]
+cvfit <- cv.glmnet(dat.train.x, dat.train.y, family = "binomial", type.measure = "class", nlambda = 1000)
+lasso_model<-glmnet(dat.train.x, dat.train.y, family = "binomial",lambda=cvfit$lambda.min)
+
+
+##Models built as referenced in Model Selection section of paper
+#Forward Model
+forward2<- glm(formula = y ~ duration + job + contact + day_of_week + default + previous, family = binomial(link = "logit"), data = balanced_train_bank_20)
+#Stepwise Model
+logr<- glm(y ~ job + default + contact + month + duration + campaign + pdays +poutcome, family = binomial(link = "logit"),data = balanced_train_bank_20)
+#Backward model
+backward<- glm(y ~ job + education + default + contact +duration + previous + pdays + campaign, family = binomial(link = "logit"),data = balanced_train_bank_20)
+
+#The lasso model gave us the following variavles
+lassoc<-glm(y ~ job + education + marital + housing + contact + default + month + day_of_week + duration + campaign + pdays + poutcome + emp.var.rate + cons.conf.idx + cons.price.idx + nr.employed, family = binomial(link = "logit"),data = balanced_train_bank_20)
 
 
 
@@ -294,8 +296,32 @@ logr_Stepwise <- glm(y ~ job + default + contact + month + duration + campaign +
 
 
 ###ROC Curve Building 
+#forward curve
+pred_forward <- prediction(logr_Forward, test_bank_20$y)
+roc_forward = performance(pred_forward, measure = "tpr", x.measure = "fpr")
+
+#Backward Curve
+pred_backward <- prediction(logr_Backward, test_bank_20$y)
+roc_backward= performance(pred_backward, measure = "tpr", x.measure = "fpr")
 
 
+#Stepwise Curve
+pred_stepwise <- prediction(logr_Stepwise, test_bank_20$y)
+roc_stepwise = performance(pred_stepwise, measure = "tpr", x.measure = "fpr")
+
+#Lasso 
+pred_lasso <- predict(lasso_model, newx = test_bank_20, type = 'response')
+rox_lasso <- performance(prediction(pred_lasso, test_bank_20$y), 'tpr', 'fpr')
+
+
+
+plot(roc_forward, col="black", add = TRUE)
+plot(roc_stepwise,col="orange", add = TRUE)
+plot(roc_backward,col="blue", add = TRUE)
+plot(perfl,col="yellow", add = TRUE)
+legend("bottomright",legend=c("Forward","Stepwise","Backward", "Lasso"),col=c("black","orange","blue","yellow"),lty=1,lwd=1)
+abline(a=0, b= 1)
+```
 
 ###ROC Curve Printing
 

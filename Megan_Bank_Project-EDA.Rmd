@@ -61,16 +61,6 @@ Pdays is a major variable that needs correcting, the large inclusion of the 999 
 ```{r cleaning}
 
 clean_bank_20 = as.data.frame(bank_20)
-#pdays- about 40k of the 41k are at level 999, no previous contact 
-#could bin this data 
-hist(bank_20$pdays)
-
-temp = bank_20 %>% filter(pdays != 999)
-dim(temp)
-hist(temp$pdays)
-summary(temp$pdays)
-
-#within 5 days, 10 , 15, 30 and never
 
 clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
                      bank_20$pdays >= 15 ~ "Within 30 Days", 
@@ -346,3 +336,35 @@ fullpredtable
 
 ```
 
+Pdays. 
+```{r}
+
+clean_bank_20 = as.data.frame(bank_20)
+
+clean_bank_20$newpdays = case_when(bank_20$pdays == 999 ~ "Never",
+                     bank_20$pdays >= 15 ~ "Within 30 Days", 
+                     bank_20$pdays >= 10 & bank_20$pdays < 15 ~ "Within 15 Days",
+                     bank_20$pdays >= 5 & bank_20$pdays < 10 ~ "Within 10 Days",
+                     bank_20$pdays < 5 ~ "Within 5 Days") 
+
+clean_bank_20 = dplyr::select(clean_bank_20, -pdays) 
+
+
+#Dr Turner's other suggestion 
+#Set up a categorical variable to turn the continuous variable on or off. 
+#any use of this would have to be both in tandem
+#ie y ~ altpdays_cat*altpdays_cont
+alt_pdays_cat = ifelse(bank_20$pdays == 999, 0, 1)
+#remains the same as original pdays, 
+
+alt_clean_bank_20 = bank_20
+alt_clean_bank_20$pdays_cat = alt_pdays_cat
+
+cat_only = glm(y ~ newpdays, family = binomial(link = "logit"),data = clean_bank_20)
+
+combo_model = glm(y ~ pdays_cat*pdays, family = binomial(link = "logit"),data = alt_clean_bank_20)
+
+#In a solo model, the pdays_cat*pdays combination is not significant. Further exploration can be done but with limited time, 
+#I propose the newpdays which convers pdays into a categorical variable is the best way to use pdays. 
+
+```
